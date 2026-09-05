@@ -39,19 +39,48 @@ services:
     ports:
       - "${API_PORT:-3000}:3000"
     environment:
+      IMPORT_DEBUG_LOGS: ${IMPORT_DEBUG_LOGS:-true}
       NODE_ENV: production
       PORT: 3000
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       DATABASE_URL: postgresql://${POSTGRES_USER:-template}:${POSTGRES_PASSWORD:-template_dev}@postgres:5432/${POSTGRES_DB:-template_dev}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       TRUSTED_ORIGINS: ${FRONTEND_URL:-http://localhost:5173}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-development-only-change-this-32-characters}
+      PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:-ZGV2ZWxvcG1lbnQtb25seS1wcm92aWRlci1rZXktMzItYnl0ZXM=}
+      OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 8
       start_period: 15s
+
+  import-worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["node", "dist/import-worker.js"]
+    restart: unless-stopped
+    stop_grace_period: 4m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      IMPORT_DEBUG_LOGS: ${IMPORT_DEBUG_LOGS:-true}
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-template}:${POSTGRES_PASSWORD:-template_dev}@postgres:5432/${POSTGRES_DB:-template_dev}
+      PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:-ZGV2ZWxvcG1lbnQtb25seS1wcm92aWRlci1rZXktMzItYnl0ZXM=}
+      OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
+      FIRECRAWL_CREDIT_LIMIT_MONTHLY: ${FIRECRAWL_CREDIT_LIMIT_MONTHLY:-500}
+      OPENAI_IMPORT_LIMIT_MONTHLY: ${OPENAI_IMPORT_LIMIT_MONTHLY:-100}
+    healthcheck:
+      test: ["CMD", "node", "-e", "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/casa-clara-worker-heartbeat','utf8'))>60000)process.exit(1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 30s
 
   frontend:
     build:

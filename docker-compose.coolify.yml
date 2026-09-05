@@ -39,11 +39,14 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      TRUST_PROXY: ${TRUST_PROXY:-false}
       DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/app
       FRONTEND_URL: ${FRONTEND_URL:?}
       TRUSTED_ORIGINS: ${FRONTEND_URL:?}
       BETTER_AUTH_URL: ${PUBLIC_API_URL:?}
       BETTER_AUTH_SECRET: ${SERVICE_BASE64_64_AUTH}
+      PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${SERVICE_REALBASE64_64_PROVIDER_CREDENTIAL}
+      OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
     expose:
       - "3000"
     healthcheck:
@@ -51,6 +54,30 @@ services:
       interval: 15s
       timeout: 5s
       retries: 8
+      start_period: 30s
+
+  import-worker:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ["node", "dist/import-worker.js"]
+    restart: unless-stopped
+    stop_grace_period: 4m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/app
+      PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${SERVICE_REALBASE64_64_PROVIDER_CREDENTIAL}
+      OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
+      FIRECRAWL_CREDIT_LIMIT_MONTHLY: ${FIRECRAWL_CREDIT_LIMIT_MONTHLY:-500}
+      OPENAI_IMPORT_LIMIT_MONTHLY: ${OPENAI_IMPORT_LIMIT_MONTHLY:-100}
+    healthcheck:
+      test: ["CMD", "node", "-e", "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/casa-clara-worker-heartbeat','utf8'))>60000)process.exit(1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
       start_period: 30s
 
   frontend:

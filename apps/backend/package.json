@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "worker:imports": "tsx src/import-worker.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "check": "prisma generate && tsc --noEmit",
@@ -20,7 +21,9 @@
     "@template/shared": "*",
     "better-auth": "1.7.1",
     "dotenv": "17.2.3",
-    "hono": "^4.9.0"
+    "hono": "^4.9.0",
+    "undici": "^6.28.1",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
