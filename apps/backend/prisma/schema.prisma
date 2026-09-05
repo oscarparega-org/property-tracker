@@ -8,6 +8,11 @@ datasource db {
 }
 
 model User {
+  properties Property[]
+  imports PropertyImport[]
+  mutationAudits MutationAudit[]
+  providerSettings ProviderSetting[]
+  providerUsage ProviderUsage[]
   id            String    @id @default(uuid())
   name          String
   email         String    @unique
@@ -65,4 +70,240 @@ model Verification {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("verifications")
+}
+
+model ImportBudget {
+  month String @id
+  firecrawl Int @default(0)
+  aiCalls Int @default(0)
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  LAND
+  OTHER
+}
+
+enum OperationType {
+  SALE
+}
+
+enum DecisionStatus {
+  NEW
+  INTERESTED
+  CONTACTED
+  VISIT_SCHEDULED
+  VISITED
+  OFFER_MADE
+  REJECTED
+  PURCHASED
+}
+
+enum FeatureCategory {
+  AREA
+  EQUIPMENT
+  OTHER
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ImportStatus {
+  QUEUED
+  FETCHING
+  RENDERING
+  EXTRACTING
+  READY
+  FAILED
+}
+
+enum ImportKind {
+  STANDARD
+  ENHANCEMENT
+}
+
+enum IntegrationProvider {
+  OPENAI
+  FIRECRAWL
+}
+
+model ProviderSetting {
+  id                   String              @id @default(cuid())
+  ownerId              String
+  owner                User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  provider             IntegrationProvider
+  enabled              Boolean             @default(false)
+  model                String?
+  monthlyOperationLimit Int
+  credentialCiphertext Bytes?
+  credentialIv         Bytes?
+  credentialAuthTag    Bytes?
+  credentialHint       String?
+  validatedAt          DateTime?
+  needsAttention       Boolean             @default(false)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([ownerId, provider])
+  @@index([ownerId])
+}
+
+model ProviderUsage {
+  id             String              @id @default(cuid())
+  ownerId        String
+  owner          User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  provider       IntegrationProvider
+  month          String
+  operationCount Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([ownerId, provider, month])
+  @@index([ownerId, month])
+}
+
+model Property {
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(cuid())
+  sourceProvider      String
+  sourceUrl           String?
+  sourceListingId     String?
+  sourceListingKey    String?
+  sourceObservedAt    DateTime
+  sourceMetadata      Json
+  title               String
+  description         String?
+  propertyType        PropertyType
+  operationType       OperationType     @default(SALE)
+  priceAmount         Decimal?          @db.Decimal(14, 2)
+  priceCurrency       String?           @db.VarChar(3)
+  street              String?
+  exteriorNumber      String?
+  interiorNumber      String?
+  neighborhood        String?
+  municipality        String?
+  state               String?
+  postalCode          String?
+  countryCode         String            @default("MX") @db.VarChar(2)
+  formattedAddress    String?
+  latitude            Decimal?          @db.Decimal(9, 6)
+  longitude           Decimal?          @db.Decimal(9, 6)
+  landAreaM2          Decimal?          @db.Decimal(10, 2)
+  constructionAreaM2  Decimal?          @db.Decimal(10, 2)
+  bedrooms            Int?
+  bathrooms           Decimal?          @db.Decimal(4, 1)
+  parkingSpaces       Int?
+  parkingType         String?
+  serviceRoom         Boolean?
+  propertyAgeYears    Int?
+  condition           String?
+  orientation         String?
+  landUse             String?
+  buildingLevels      Int?
+  unitFloor           Int?
+  maintenanceAmount   Decimal?          @db.Decimal(12, 2)
+  maintenanceCurrency String?           @db.VarChar(3)
+  technicalSheetQrUrl String?
+  agentName           String?
+  agentAvatarUrl      String?
+  agentPhones         String[]          @default([])
+  agentEmail          String?
+  officeName          String?
+  sourceOfficeId      String?
+  decisionStatus      DecisionStatus    @default(NEW)
+  isFavorite          Boolean           @default(false)
+  rating              Int?
+  notes               String?
+  visitAt             DateTime?
+  rejectionReason     String?
+  archivedAt          DateTime?
+  publicationStatus   PublicationStatus @default(PUBLISHED)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  images              PropertyImage[]
+  features            PropertyFeature[]
+  imports             PropertyImport[]
+
+  @@unique([ownerId, sourceUrl])
+  @@index([ownerId])
+  @@unique([ownerId, sourceProvider, sourceListingId])
+  @@index([ownerId, publicationStatus])
+  @@index([decisionStatus])
+  @@index([archivedAt])
+  @@index([isFavorite])
+  @@index([publicationStatus])
+}
+
+model PropertyImport {
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id                  String       @id @default(cuid())
+  url                 String
+  canonicalUrl        String
+  status              ImportStatus @default(QUEUED)
+  kind                ImportKind   @default(STANDARD)
+  strategy            String?
+  provider            String?
+  retryCount          Int          @default(0)
+  draftData           Json?
+  evidence            Json?
+  errorMessage        String?
+  inputTokens         Int?
+  outputTokens        Int?
+  firecrawlCredits    Int          @default(0)
+  processingStartedAt DateTime?
+  completedAt         DateTime?
+  propertyId          String?
+  property            Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([status, createdAt])
+  @@index([ownerId, canonicalUrl])
+  @@index([canonicalUrl])
+  @@index([ownerId])
+  @@index([ownerId, kind, status])
+  @@index([createdAt])
+}
+
+model MutationAudit {
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  action     String
+  targetType String
+  targetId   String?
+  ipHash     String
+  createdAt  DateTime @default(now())
+
+  @@index([ipHash, action, createdAt])
+  @@index([ownerId])
+  @@index([action, createdAt])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  propertyId String
+  url        String
+  alt        String?
+  sortOrder  Int
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, url])
+  @@index([propertyId, sortOrder])
+}
+
+model PropertyFeature {
+  id         String          @id @default(cuid())
+  propertyId String
+  category   FeatureCategory
+  name       String
+  property   Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, category, name])
+  @@index([propertyId])
 }

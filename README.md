@@ -1,84 +1,23 @@
-# Full-stack Coolify project template
+# Casa Clara
 
-A reusable monorepo that turns a new public GitHub repository into an isolated development deployment on Coolify. It includes:
+Private property tracking with a Spanish Next.js interface, a Hono API, Better Auth, Prisma, PostgreSQL, and a separate URL-import worker.
 
-- Next.js 16 and Tailwind CSS frontend
-- Hono API
-- Better Auth email/password signup, sign-in, session, and sign-out
-- Prisma and PostgreSQL
-- production Docker images and Docker Compose
-- GitHub Actions quality gates and idempotent Coolify provisioning
+## Fresh-start behavior
 
-There is no social login, mail provider, email verification flow, or password-reset flow. The template repository deploys normally too, so it can serve as the live example.
+There is no seed step, legacy-data import, or automatic account creation. New accounts have an empty collection. Migrations add the property tables without deleting existing authentication data or resetting a database.
 
-## What happens after “Use this template”
+After deployment:
 
-```text
-new repository push to main
-          │
-          ├── type-check + lint + test + build
-          ├── validate both Docker images
-          └── reconcile through the Coolify API
-                 ├── project:      {repo}
-                 ├── environment:  dev
-                 ├── destination:  {repo}-dev
-                 ├── network:      repo-{github_repository_id}-dev
-                 ├── application:  {repo}-dev
-                 ├── frontend:     https://{repo}-dev.{base-domain}
-                 └── API:          https://{repo}-api-dev.{base-domain}
-```
+1. Open the frontend and create an account.
+2. Choose **Agregar** and submit a public property-listing URL.
+3. Wait for extraction, review the draft, then select **Publicar**.
+4. Check the map/list and save favorites, notes, rating, or a visit date.
 
-Provisioning is convergent: rerunning the workflow reuses the managed project, environment, destination, network, and application, then deploys the exact commit SHA. A failed deployment is retained for inspection; the workflow does not delete infrastructure.
+Every property, draft, and import belongs to its authenticated owner. Two users may import the same listing independently. Photos remain external URLs; files are not uploaded.
 
-## One-time organization setup
+## Local development
 
-1. Host this repository in the GitHub organization, make it public, set `main` as its default branch, and enable **Template repository** in Settings → General.
-2. Point a wildcard DNS record for `*.dev.example.com` at the server running Coolify. The example is illustrative; use your own domain.
-3. Confirm the Coolify server is validated, its proxy is running, and Coolify can issue TLS certificates for that wildcard's individual hostnames.
-4. In GitHub organization Settings → Secrets and variables → Actions, add these **variables** and grant them to all public repositories:
-
-   | Variable | Value |
-   | --- | --- |
-   | `COOLIFY_API_URL` | Public HTTPS API root, including `/api/v1`, such as `https://coolify.example.com/api/v1` |
-   | `COOLIFY_SERVER_UUID` | UUID of the server that will host generated projects |
-   | `DEPLOY_BASE_DOMAIN` | Domain only, with no protocol or wildcard, such as `dev.example.com` |
-
-5. Add these organization **secrets**, also available to public repositories:
-
-   | Secret | Purpose |
-   | --- | --- |
-   | `COOLIFY_WRITE_TOKEN` | Reconciles projects, environments, destinations, applications, and application variables |
-   | `COOLIFY_DEPLOY_TOKEN` | Starts deployments |
-
-Use separate least-privilege Coolify tokens if the permissions available in your Coolify version allow it. If Coolify tokens cannot be limited by operation, both GitHub secrets may contain the same token. Keep the Coolify instance and tokens private; the API URL, server UUID, and base domain are configuration, not source-code constants.
-
-GitHub Free supports public organization repositories and public-repository Actions usage. Organization secrets/variables must be explicitly made available to the generated public repositories. See GitHub's documentation for [template repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-template-repository), [organization variables](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables), and [organization secrets](https://docs.github.com/en/actions/how-tos/security-for-github-actions/security-guides/using-secrets-in-github-actions).
-
-## Create a project
-
-1. Select **Use this template → Create a new repository**.
-2. Create it in the configured organization as a **public** repository.
-3. Use a lowercase repository name containing only letters, numbers, and hyphens, with at most 55 characters.
-4. Open Actions → **CI and development deployment** and follow the first run.
-
-No repository-specific variables or secrets are required. The generated repository's first push runs the workflow. When it succeeds, the job summary contains both public URLs.
-
-If wildcard DNS is unavailable, create the two derived DNS records before rerunning the workflow. Resource names and URL rules intentionally live in [`scripts/coolify.mjs`](scripts/coolify.mjs), not in GitHub configuration.
-
-## Run locally
-
-Requirements: Node 22.20+, npm 10.9+, and Docker with Compose.
-
-For the closest production-like path:
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Open `http://localhost:5173`. PostgreSQL data is stored in the `pgdata` volume. Stop the stack with `docker compose down`; add `--volumes` only when you intentionally want to erase the local database.
-
-For application development with only PostgreSQL in Docker:
+Requirements: Node 22.20+, npm 10.9+, Docker Compose.
 
 ```bash
 npm ci
@@ -89,49 +28,71 @@ npm run db:migrate --workspace=template-backend
 npm run dev
 ```
 
-The frontend runs at `http://localhost:5173` and the API at `http://localhost:3000`.
+In another terminal, run `npm run worker:imports`. The frontend uses port 5173 and Hono uses port 3000. Alternatively, `docker compose up --build` runs PostgreSQL, migrations, API, worker, and frontend together.
 
-## Verification commands
+## Personal provider configuration
+
+Each authenticated user configures OpenAI and Firecrawl from **Configuración → Integraciones**. Provider credentials are validated before saving, encrypted at rest, never returned by the API, and used only for jobs owned by that account. Users can independently enable each provider, choose an approved OpenAI model, and set monthly operation limits.
+
+The deployment uses these server-side variables:
+
+| Variable | Purpose |
+|---|---|
+| `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` | Stable base64 secret containing at least 32 random bytes; encrypts user credentials with AES-256-GCM |
+| `OPENAI_ALLOWED_MODELS` | Comma-separated model allowlist; defaults to Luna, Terra, and Sol |
+| `FIRECRAWL_CREDIT_LIMIT_MONTHLY` | Global safety ceiling; default 500 scrape reservations per UTC month |
+| `OPENAI_IMPORT_LIMIT_MONTHLY` | Global safety ceiling; default 100 AI request reservations per UTC month |
+| `TRUST_PROXY` | Defaults to false; enable only if the proxy replaces untrusted forwarded headers |
+
+Coolify generates the encryption secret through `SERVICE_BASE64_64_PROVIDER_CREDENTIAL`. For non-Compose development, generate one with `openssl rand -base64 32` and keep it out of source control. The key must remain stable and backed up; losing it requires users to enter their provider credentials again.
+
+New URL imports first make a safe, size-limited HTTP GET and extract HTML, JSON-LD, Open Graph, and embedded metadata. A deterministic confidence gate accepts clear property listings and rejects pages with no property evidence. Borderline pages are rejected when OpenAI is unavailable; when it is enabled, one grounded model response validates the page and completes only supported fields. Firecrawl is never automatic: an existing property's **Mejorar con Firecrawl + IA** action appears only when both providers are active, produces a preview, and fills empty fields plus new images/features without overwriting user-entered values or decisions. User and global budgets reserve operations before requests, including failures and retries, so they are not billing reconciliation.
+
+Hono reserves hourly account limits and daily application limits for URL imports (5/25), manual creation (10/50), and draft updates (15/75). IP limits are also applied when a trusted proxy is configured. IPs are hashed using the authentication secret; an optional `PUBLIC_WRITE_HASH_SECRET` can override it for non-Compose development. CAPTCHA is not used.
+
+The worker polls the database, atomically claims queued jobs, retries up to three attempts, and recovers interrupted work. Each deployment runs one worker. The worker health check verifies its heartbeat; failures exit and the container restart policy restarts it. Monitor failed jobs and worker logs through Coolify.
+
+## Architecture
+
+- `apps/frontend`: UI, maps, galleries, authenticated browser API client.
+- `apps/backend`: Hono routes, auth, Prisma migrations, extraction, worker.
+- `packages/shared`: property DTOs, request contracts, validation schemas.
+- `docker-compose.yml`: local developer stack.
+- `docker-compose.coolify.yml`: deployment stack.
+
+All property, import, and provider-settings routes require a session and return private, uncached responses. The frontend does not access Prisma or run property Server Actions. The API owns validation, ownership checks, credential encryption, and persistence. The worker decrypts a credential only for its owner's active job and retains it only in memory for that provider call.
+
+## Deployment
+
+GitHub Actions remains the only deployment controller: quality checks and container builds precede deployment of the exact commit SHA. Coolify auto-deploy stays disabled. Naming and public URL derivation remain in `scripts/coolify.mjs`; deployment addresses, IDs, and tokens are configuration, not source constants.
+
+Organization/repository Actions variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UUID`, `DEPLOY_BASE_DOMAIN`. Secrets: `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`. The existing provisioner manages isolated repository resources and frontend/API domains.
+
+The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials, the Better Auth secret, and the provider-credential encryption secret. User provider tokens never enter the frontend build or deployment environment.
+
+Back up the PostgreSQL volume before deploying migrations. Roll back application code through the same exact-SHA pipeline; these additive property tables can remain when rolling back to the auth-only application. Do not reset or drop the database as a deployment step.
+
+## Verification
 
 ```bash
 npm run check
 npm run lint
 npm test
 npm run build
-docker compose -f docker-compose.yml config
+docker compose -f docker-compose.yml config --quiet
 docker compose -f docker-compose.yml build
 ```
 
-The CI workflow runs all of these checks before provisioning or deployment. The Coolify file contains Coolify's `exclude_from_hc` extension for the one-shot migration service, so stock Docker Compose validation uses the equivalent local file. Dependabot checks npm packages, Docker base images, and GitHub Actions weekly.
+Database/browser tests require a separate disposable database whose name ends in `_test`:
 
-## Deployment design and safety
-
-- The Coolify Compose file uses Coolify magic variables to generate the PostgreSQL password and Better Auth secret inside Coolify; they never pass through GitHub logs.
-- Frontend and API domains are configured on the corresponding Compose services. The API URL is injected at frontend build time because browser code cannot discover it later.
-- Every repository receives a dedicated Coolify Docker destination and network. The application is also tagged with the immutable GitHub repository ID so renames do not cause lookup ambiguity.
-- The script refuses to take over a same-named project unless its management marker matches the current GitHub repository ID.
-- API failures report the endpoint and status only, never response bodies or token values.
-- Automatic Coolify GitHub webhooks are disabled. GitHub Actions is the single deployment controller and deploys `GITHUB_SHA`.
-- The frontend publishes a restrictive robots policy. This is a development environment, not a production topology; authentication or network restrictions are still required if it must be private.
-
-The automation uses Coolify's documented [REST API](https://coolify.io/docs/api-reference/api) to manage the resources. Since Coolify evolves independently, upgrade Coolify deliberately and run `node --test scripts/coolify.test.mjs` after changing the reconciliation contract.
-
-## Removing a generated deployment
-
-Deletion is intentionally not automated. In Coolify, delete the application first, then the `{repo}-dev` destination/network, and finally the `{repo}` project if it contains nothing else. This protects the PostgreSQL volume and failed deployments from accidental cleanup.
-
-## Repository map
-
-```text
-apps/frontend/              Next.js UI and Better Auth client
-apps/backend/               Hono API, Better Auth server, Prisma schema/migrations
-packages/shared/            shared API contracts
-docker-compose.yml          local production-like stack
-docker-compose.coolify.yml  Coolify stack with generated secrets
-scripts/coolify.mjs         idempotent provisioning and deployment
-.github/workflows/ci.yml    build, container validation, and dev deployment
+```bash
+export TEST_DATABASE_URL=postgresql://test:test@localhost:55439/casa_clara_test
+DATABASE_URL="$TEST_DATABASE_URL" npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
+npm run test:e2e
+npx playwright install chromium
+npm run test:browser
 ```
 
-## Scope
+The browser suite expects the frontend built with the default local API URL, uses ports 3000 and 5179, and tests real signup, encrypted integration setup, private empty collections, URL extraction, draft publication, deep-enhancement preview/apply, saved decisions, and mobile layout. Publisher and provider responses are fixtures; no provider requests are billed. On machines where downloaded Chromium cannot launch, use `PLAYWRIGHT_CHANNEL=chrome npm run test:browser`.
 
-This template intentionally creates only the fixed `dev` environment. Production promotion, backups, monitoring, mail delivery, password recovery, and social providers should be designed per application rather than silently inherited from a starter.
+CI runs these suites against a PostgreSQL service before deployment. Tests delete only their own generated accounts and related records. They never connect to the original house database or seed a deployed environment.

@@ -12,5 +12,6 @@
     "lint": "eslint src",
     "test": "vitest run src"
   },
+  "dependencies": { "zod": "^4.5.4" },
   "devDependencies": { "typescript": "^5.9.0", "vitest": "3.2.7" }
 }

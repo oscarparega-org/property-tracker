@@ -21,4 +21,9 @@ describe('loadEnvironment', () => {
   it('requires a database URL', () => {
     expect(() => loadEnvironment({ ...valid, DATABASE_URL: '' })).toThrow(/DATABASE_URL/);
   });
+
+  it('requires a strong provider encryption key in production', () => {
+    expect(() => loadEnvironment({ ...valid, NODE_ENV: 'production' })).toThrow(/PROVIDER_CREDENTIAL_ENCRYPTION_KEY/);
+    expect(() => loadEnvironment({ ...valid, NODE_ENV: 'production', PROVIDER_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') })).not.toThrow();
+  });
 });

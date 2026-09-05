@@ -2,7 +2,10 @@
   "name": "fullstack-coolify-template",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo dev --cache-dir=.turbo/cache",
     "build": "turbo build --cache-dir=.turbo/cache",
@@ -10,6 +13,8 @@
     "lint": "turbo lint --cache-dir=.turbo/cache",
     "test": "turbo test --cache-dir=.turbo/cache && node --test scripts/coolify.test.mjs",
     "test:e2e": "npm run test:e2e --workspace=template-backend",
+    "test:browser": "playwright test",
+    "worker:imports": "npm run worker:imports --workspace=template-backend",
     "db:generate": "turbo db:generate --cache-dir=.turbo/cache",
     "db:migrate": "turbo db:migrate --cache-dir=.turbo/cache",
     "deploy:coolify": "node scripts/coolify.mjs",
@@ -25,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
+    "@playwright/test": "^1.63.0",
     "@prisma/client": "6.12.0",
     "eslint": "^10.0.0",
     "globals": "^16.4.0",
