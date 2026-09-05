@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",
-    "@prisma/client": "6.12.0",
+    "@prisma/client": "7.10.0",
     "@template/shared": "*",
     "better-auth": "1.7.1",
     "dotenv": "17.2.3",
