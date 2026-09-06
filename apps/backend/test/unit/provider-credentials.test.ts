@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createCipheriv, randomBytes } from 'node:crypto';
 import {
   decryptProviderCredential,
   encryptProviderCredential,
@@ -49,6 +50,22 @@ describe('provider credential encryption', () => {
         credentialAuthTag: encrypted.authTag
       })
     ).toThrow();
+  });
+
+  it('decrypts credentials saved before the House Tracker rename', () => {
+    const key = Buffer.alloc(32, 7);
+    vi.stubEnv('PROVIDER_CREDENTIAL_ENCRYPTION_KEY', key.toString('base64'));
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    cipher.setAAD(Buffer.from('casa-clara:owner-a:OPENAI:v1'));
+    const credentialCiphertext = Buffer.concat([cipher.update('sk-existing-secret', 'utf8'), cipher.final()]);
+    expect(
+      decryptProviderCredential('owner-a', 'OPENAI', {
+        credentialCiphertext,
+        credentialIv: iv,
+        credentialAuthTag: cipher.getAuthTag()
+      })
+    ).toBe('sk-existing-secret');
   });
 
   it('uses non-billable fixed provider endpoints for validation', async () => {

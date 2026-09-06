@@ -1,24 +1,11 @@
-import { propertyInputSchema, type PropertyInput } from '@template/shared';
-import type { DirectExtraction, ExtractionArtifact } from '../import-extraction.js';
+import { propertyInputSchema, type PropertyInput } from '@house-tracker/shared';
+import type { DirectExtraction, ExtractionArtifact } from '../import-types.js';
 import type { ImportProvider } from './types.js';
+import { array, attribute, record, string } from './primitives.js';
 
 const PROVIDER_KEY = 'pulppo';
 const PROVIDER_NAME = 'Pulppo';
 const PROVIDER_VERSION = '1';
-
-function record(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-function array(value: unknown) {
-  return Array.isArray(value) ? value : [];
-}
-
-function string(value: unknown) {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  return null;
-}
 
 function number(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -26,10 +13,6 @@ function number(value: unknown) {
   if (!text) return null;
   const parsed = Number(text.replace(/,(?=\d{3}(?:\D|$))/g, '').replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : null;
-}
-
-function attribute(tag: string, name: string) {
-  return tag.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1] ?? null;
 }
 
 function propertyPayload(html: string) {

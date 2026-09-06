@@ -1,5 +1,5 @@
 'use client';
-import type { PropertyDto, FavoriteRequest, ArchiveRequest, DecisionStatusRequest } from '@template/shared';
+import type { PropertyDto, FavoriteRequest, ArchiveRequest, DecisionStatusRequest } from '@house-tracker/shared';
 import { requestApi } from './request-api';
 
 function normalizeVisit(form: FormData) {

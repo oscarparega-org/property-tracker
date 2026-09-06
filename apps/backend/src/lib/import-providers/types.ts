@@ -1,4 +1,4 @@
-import type { ExtractionArtifact, DirectExtraction } from '../import-extraction.js';
+import type { ExtractionArtifact, DirectExtraction } from '../import-types.js';
 
 export type ProviderContext = {
   fetchHtml: (url: string) => Promise<{ url: string; html: string }>;

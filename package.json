@@ -1,5 +1,5 @@
 {
-  "name": "fullstack-coolify-template",
+  "name": "house-tracker",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
@@ -16,9 +16,9 @@
     "format:check": "prettier . --check --ignore-unknown",
     "test": "turbo test --cache-dir=.turbo/cache && node --test scripts/coolify.test.mjs",
     "precommit": "npm run format:check && npm run check && npm run lint && npm test && npm run build",
-    "test:e2e": "npm run test:e2e --workspace=template-backend",
+    "test:e2e": "npm run test:e2e --workspace=house-tracker-backend",
     "test:browser": "playwright test",
-    "worker:imports": "npm run worker:imports --workspace=template-backend",
+    "worker:imports": "npm run worker:imports --workspace=house-tracker-backend",
     "db:generate": "turbo db:generate --cache-dir=.turbo/cache",
     "db:migrate": "turbo db:migrate --cache-dir=.turbo/cache",
     "deploy:coolify": "node scripts/coolify.mjs",

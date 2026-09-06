@@ -1,7 +1,7 @@
 'use client';
 import { useState, type FormHTMLAttributes } from 'react';
 import { useRouter } from 'next/navigation';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 
 type Props = Omit<FormHTMLAttributes<HTMLFormElement>, 'action'> & { action: (form: FormData) => Promise<PropertyDto> };
 export function ActionForm({ action, children, ...props }: Props) {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PrismaClient } from '@prisma/client';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 import type { ExtractionOptions } from '../../src/lib/import-extraction.js';
 import { randomUUID } from 'node:crypto';
 
@@ -17,8 +17,7 @@ process.env.PROVIDER_CREDENTIAL_ENCRYPTION_KEY = Buffer.alloc(32, 4).toString('b
 const { createApp } = await import('../../src/app.js');
 const { auth } = await import('../../src/lib/auth.js');
 const { extractDeterministic, ListingValidationError } = await import('../../src/lib/import-extraction.js');
-const { processImportJob, recoverStaleImports, reserveProvider } = await import('../../src/lib/import-jobs.js');
-const { reserveWrite } = await import('../../src/lib/write-limits.js');
+const { processImportJob, recoverStaleImports } = await import('../../src/lib/import-jobs.js');
 const db = new PrismaClient({ datasources: { db: { url } } });
 const app = createApp(auth, db);
 const emails: string[] = [];
@@ -251,7 +250,7 @@ describe('clean account → URL → private draft → publication', () => {
     });
     expect(foreign.status).toBe(403);
   });
-  it('retries failed jobs, recovers interrupted jobs, and respects disabled provider budgets', async () => {
+  it('retries failed jobs and recovers interrupted jobs', async () => {
     const job = await db.propertyImport.create({
       data: { ownerId: ownerA, url: listingUrl, canonicalUrl: listingUrl }
     });
@@ -272,19 +271,6 @@ describe('clean account → URL → private draft → publication', () => {
       status: 'QUEUED',
       retryCount: 1
     });
-    process.env.OPENAI_IMPORT_LIMIT_MONTHLY = '0';
-    expect(await reserveProvider(db, job.id, ownerA, 'OPENAI', 100)).toBe(false);
-    delete process.env.OPENAI_IMPORT_LIMIT_MONTHLY;
-  });
-  it('atomically enforces request limits under concurrent submissions', async () => {
-    const action = `test-limit-${randomUUID()}`;
-    const results = await Promise.allSettled([
-      reserveWrite(db, ownerA, new Headers(), action, 1, 10),
-      reserveWrite(db, ownerA, new Headers(), action, 1, 10)
-    ]);
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    const rejected = results.find((result) => result.status === 'rejected');
-    expect(rejected?.status === 'rejected' && rejected.reason.status).toBe(429);
   });
 
   it('stores validated provider credentials encrypted and isolates settings by owner', async () => {
@@ -303,8 +289,7 @@ describe('clean account → URL → private draft → publication', () => {
         JSON.stringify({
           enabled: true,
           credential: 'sk-owner-a-secret',
-          model: 'gpt-5.6-luna',
-          monthlyOperationLimit: 10
+          model: 'gpt-5.6-luna'
         })
       );
       expect(saved.status, await saved.clone().text()).toBe(200);
@@ -336,8 +321,7 @@ describe('clean account → URL → private draft → publication', () => {
         JSON.stringify({
           enabled: true,
           credential: 'sk-invalid-secret',
-          model: 'gpt-5.6-luna',
-          monthlyOperationLimit: 10
+          model: 'gpt-5.6-luna'
         })
       );
       expect(rejected.status).toBe(400);
@@ -366,8 +350,7 @@ describe('clean account → URL → private draft → publication', () => {
         JSON.stringify({
           enabled: true,
           credential: 'sk-owner-b-secret',
-          model: 'gpt-5.6-luna',
-          monthlyOperationLimit: 10
+          model: 'gpt-5.6-luna'
         })
       );
       expect(saveB.status, await saveB.clone().text()).toBe(200);
@@ -414,8 +397,7 @@ describe('clean account → URL → private draft → publication', () => {
         JSON.stringify({
           enabled: true,
           credential: 'fc-owner-b-secret',
-          model: null,
-          monthlyOperationLimit: 10
+          model: null
         })
       );
       expect(saved.status, await saved.clone().text()).toBe(200);
@@ -449,6 +431,8 @@ describe('clean account → URL → private draft → publication', () => {
       };
     });
     expect(await processImportJob(db, start.importId, deep)).toBe(true);
+    const completedEnhancement = await db.propertyImport.findUniqueOrThrow({ where: { id: start.importId } });
+    expect(completedEnhancement.firecrawlCredits).toBe(1);
     expect(deep.mock.calls[0]?.[1]).toMatchObject({
       mode: 'DEEP',
       firecrawl: { credential: 'fc-owner-b-secret' },

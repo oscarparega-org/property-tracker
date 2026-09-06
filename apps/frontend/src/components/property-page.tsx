@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
 import { PropertyWorkspace } from './property-workspace';
 import { PropertyDetail } from './property-detail';

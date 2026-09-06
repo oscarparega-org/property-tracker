@@ -29,7 +29,7 @@ export default defineConfig({
       }
     },
     {
-      command: 'npm exec --workspace=template-frontend -- next start --port 5179',
+      command: 'npm exec --workspace=house-tracker-frontend -- next start --port 5179',
       url: 'http://localhost:5179/sign-in',
       reuseExistingServer: false
     }

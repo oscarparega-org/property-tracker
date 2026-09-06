@@ -4,7 +4,7 @@ import {
   type PropertyInput,
   type PropertyDto,
   type EnhancementPreviewDto
-} from '@template/shared';
+} from '@house-tracker/shared';
 
 const includeRelations = {
   images: { orderBy: { sortOrder: 'asc' as const } },

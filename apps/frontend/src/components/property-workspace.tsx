@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { setDecisionStatusAction, toggleFavoriteAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 import { PropertyEditor } from '@/components/property-editor';
 import { PropertyMap } from '@/components/property-map';
 import { PropertyBoard } from '@/components/property-board';

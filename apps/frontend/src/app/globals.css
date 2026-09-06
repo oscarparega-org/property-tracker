@@ -1404,12 +1404,6 @@ select {
   color: var(--muted);
   font-size: 10px;
 }
-.usage-meter {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 7px;
-  align-items: center;
-}
 .usage-meter progress {
   grid-column: 1/-1;
   width: 100%;

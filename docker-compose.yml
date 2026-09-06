@@ -5,9 +5,9 @@ services:
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-template}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-template_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-template_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-house_tracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-house_tracker_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-house_tracker_dev}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -25,7 +25,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-template}:${POSTGRES_PASSWORD:-template_dev}@postgres:5432/${POSTGRES_DB:-template_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-house_tracker}:${POSTGRES_PASSWORD:-house_tracker_dev}@postgres:5432/${POSTGRES_DB:-house_tracker_dev}
     command: ['npx', 'prisma', 'migrate', 'deploy']
 
   backend:
@@ -42,8 +42,7 @@ services:
       IMPORT_DEBUG_LOGS: ${IMPORT_DEBUG_LOGS:-true}
       NODE_ENV: production
       PORT: 3000
-      TRUST_PROXY: ${TRUST_PROXY:-false}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-template}:${POSTGRES_PASSWORD:-template_dev}@postgres:5432/${POSTGRES_DB:-template_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-house_tracker}:${POSTGRES_PASSWORD:-house_tracker_dev}@postgres:5432/${POSTGRES_DB:-house_tracker_dev}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       TRUSTED_ORIGINS: ${FRONTEND_URL:-http://localhost:5173}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
@@ -76,11 +75,9 @@ services:
     environment:
       IMPORT_DEBUG_LOGS: ${IMPORT_DEBUG_LOGS:-true}
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-template}:${POSTGRES_PASSWORD:-template_dev}@postgres:5432/${POSTGRES_DB:-template_dev}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-house_tracker}:${POSTGRES_PASSWORD:-house_tracker_dev}@postgres:5432/${POSTGRES_DB:-house_tracker_dev}
       PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:-ZGV2ZWxvcG1lbnQtb25seS1wcm92aWRlci1rZXktMzItYnl0ZXM=}
       OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
-      FIRECRAWL_CREDIT_LIMIT_MONTHLY: ${FIRECRAWL_CREDIT_LIMIT_MONTHLY:-500}
-      OPENAI_IMPORT_LIMIT_MONTHLY: ${OPENAI_IMPORT_LIMIT_MONTHLY:-100}
     healthcheck:
       test:
         [

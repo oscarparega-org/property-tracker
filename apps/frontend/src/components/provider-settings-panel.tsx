@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { IntegrationProvider, ProviderSettingsDto } from '@template/shared';
+import type { IntegrationProvider, ProviderSettingsDto } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
 
 const labels: Record<IntegrationProvider, { name: string; description: string; credential: string }> = {
@@ -27,7 +27,6 @@ function ProviderCard({
 }) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [model, setModel] = useState(initial.model ?? '');
-  const [limit, setLimit] = useState(String(initial.monthlyOperationLimit));
   const [credential, setCredential] = useState('');
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -36,7 +35,6 @@ function ProviderCard({
   useEffect(() => {
     setEnabled(initial.enabled);
     setModel(initial.model ?? '');
-    setLimit(String(initial.monthlyOperationLimit));
   }, [initial]);
 
   async function run(action: () => Promise<ProviderSettingsDto>, success: string) {
@@ -82,8 +80,7 @@ function ProviderCard({
                 body: JSON.stringify({
                   enabled,
                   ...(credential ? { credential } : {}),
-                  model: initial.provider === 'OPENAI' ? model : null,
-                  monthlyOperationLimit: Number(limit)
+                  model: initial.provider === 'OPENAI' ? model : null
                 })
               }),
             'Configuración guardada y validada.'
@@ -116,24 +113,6 @@ function ProviderCard({
             </select>
           </label>
         )}
-        <label>
-          <span>Límite mensual de operaciones</span>
-          <input
-            type="number"
-            min="1"
-            max="1000000"
-            required
-            value={limit}
-            onChange={(event) => setLimit(event.target.value)}
-          />
-        </label>
-        <div className="usage-meter">
-          <span>Uso del mes</span>
-          <strong>
-            {initial.currentMonthOperations} / {initial.monthlyOperationLimit}
-          </strong>
-          <progress max={initial.monthlyOperationLimit} value={initial.currentMonthOperations} />
-        </div>
         <label className="integration-toggle">
           <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
           <span>Usar {copy.name} en mis importaciones</span>

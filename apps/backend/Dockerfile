@@ -14,8 +14,8 @@ COPY --from=deps /app/ ./
 COPY tsconfig.base.json turbo.json ./
 COPY packages/shared ./packages/shared
 COPY apps/backend ./apps/backend
-RUN npm run build --workspace=@template/shared
-RUN npm run build --workspace=template-backend
+RUN npm run build --workspace=@house-tracker/shared
+RUN npm run build --workspace=house-tracker-backend
 
 FROM base AS runtime
 WORKDIR /app
@@ -27,7 +27,8 @@ COPY --from=build /app/node_modules ./node_modules
 # npm may keep packages with workspace-specific optional peers here instead of
 # hoisting them. Merge those modules where dist/*.js can resolve them.
 COPY --from=build /app/apps/backend/node_modules ./node_modules
-COPY --from=build /app/packages/shared/dist ./node_modules/@template/shared/dist
-COPY --from=build /app/packages/shared/package.json ./node_modules/@template/shared/package.json
+COPY --from=build /app/packages/shared/dist ./node_modules/@house-tracker/shared/dist
+COPY --from=build /app/packages/shared/package.json ./node_modules/@house-tracker/shared/package.json
 EXPOSE 3000
+USER node
 CMD ["node", "dist/index.js"]

@@ -1,20 +1,11 @@
-import { propertyInputSchema, type PropertyInput } from '@template/shared';
-import type { DirectExtraction, ExtractionArtifact } from '../import-extraction.js';
+import { propertyInputSchema, type PropertyInput } from '@house-tracker/shared';
+import type { DirectExtraction, ExtractionArtifact } from '../import-types.js';
 import type { ImportProvider, ProviderContext } from './types.js';
+import { array, attribute, decodeEntities, meta, record, string } from './primitives.js';
 
 const PROVIDER_KEY = 'remax-mx';
 const PROVIDER_NAME = 'RE/MAX México';
 const PROVIDER_VERSION = '1';
-
-function decodeEntities(value: string) {
-  return value
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>');
-}
 
 function text(value: string | null | undefined) {
   if (!value) return null;
@@ -22,20 +13,6 @@ function text(value: string | null | undefined) {
     .replace(/\s+/g, ' ')
     .trim();
   return result || null;
-}
-
-function attribute(tag: string, name: string) {
-  return decodeEntities(tag.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i'))?.[1] ?? '') || null;
-}
-
-function meta(html: string, key: string) {
-  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
-    const property = attribute(tag, 'property');
-    const name = attribute(tag, 'name');
-    if (property?.toLowerCase() === key.toLowerCase() || name?.toLowerCase() === key.toLowerCase())
-      return attribute(tag, 'content');
-  }
-  return null;
 }
 
 function escapeRegex(value: string) {
@@ -95,20 +72,6 @@ function propertyType(value: string | null): PropertyInput['property']['property
   if (/\bcasa\b/i.test(value ?? '')) return 'HOUSE';
   if (/terreno/i.test(value ?? '')) return 'LAND';
   return 'OTHER';
-}
-
-function record(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-function array(value: unknown) {
-  return Array.isArray(value) ? value : [];
-}
-
-function string(value: unknown) {
-  if (typeof value === 'string' && value.trim()) return value.trim();
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  return null;
 }
 
 function numberFromUnknown(value: unknown) {

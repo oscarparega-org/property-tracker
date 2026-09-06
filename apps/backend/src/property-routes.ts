@@ -10,7 +10,7 @@ import {
   favoriteRequestSchema,
   archiveRequestSchema,
   propertyInputSchema
-} from '@template/shared';
+} from '@house-tracker/shared';
 import type { AppVariables } from './types.js';
 import {
   applyEnhancement,
@@ -21,7 +21,6 @@ import {
 } from './lib/property-store.js';
 import { saveProperty } from './lib/property-editor.js';
 import { assertSafePublicUrl } from './lib/import-extraction.js';
-import { reserveWrite } from './lib/write-limits.js';
 import { enabledProviderCredential } from './lib/provider-credentials.js';
 import { importDebug } from './lib/import-debug.js';
 
@@ -83,7 +82,6 @@ export function propertyRoutes(db: PrismaClient) {
         importDebug(active.id, 'enhancement.queue.reused', { propertyId: property.id });
         return active;
       }
-      await reserveWrite(tx, owner(c), c.req.raw.headers, 'deep-enhancement', 3, 15);
       const job = await tx.propertyImport.create({
         data: {
           ownerId: owner(c),
@@ -131,13 +129,10 @@ export function propertyRoutes(db: PrismaClient) {
   });
   routes.get('/properties/:id', async (c) => c.json(await owned(c.req.param('id'), owner(c))));
   routes.post('/properties', async (c) => {
-    await reserveWrite(db, owner(c), c.req.raw.headers, 'manual-create', 10, 50);
     return c.json(await saveProperty(db, owner(c), await c.req.formData()), 201);
   });
   routes.put('/properties/:id', async (c) => {
     const property = await owned(c.req.param('id'), owner(c));
-    if (property.publicationStatus === 'DRAFT')
-      await reserveWrite(db, owner(c), c.req.raw.headers, 'draft-update', 15, 75);
     return c.json(await saveProperty(db, owner(c), await c.req.formData(), property.id));
   });
   routes.patch('/properties/:id/decision', async (c) => {
@@ -199,7 +194,6 @@ export function propertyRoutes(db: PrismaClient) {
         importDebug(active.id, 'import.queue.reused', { sourceHost: new URL(canonicalUrl).hostname });
         return { importId: active.id, status: active.status };
       }
-      await reserveWrite(tx, owner(c), c.req.raw.headers, 'url-import', 5, 25);
       const job = await tx.propertyImport.create({ data: { ownerId: owner(c), url, canonicalUrl } });
       importDebug(job.id, 'import.queued', { kind: job.kind, sourceHost: new URL(canonicalUrl).hostname });
       return { importId: job.id, status: job.status };

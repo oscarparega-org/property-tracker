@@ -10,9 +10,7 @@ datasource db {
 model User {
   properties Property[]
   imports PropertyImport[]
-  mutationAudits MutationAudit[]
   providerSettings ProviderSetting[]
-  providerUsage ProviderUsage[]
   id            String    @id @default(uuid())
   name          String
   email         String    @unique
@@ -70,12 +68,6 @@ model Verification {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("verifications")
-}
-
-model ImportBudget {
-  month String @id
-  firecrawl Int @default(0)
-  aiCalls Int @default(0)
 }
 
 enum PropertyType {
@@ -136,7 +128,6 @@ model ProviderSetting {
   provider             IntegrationProvider
   enabled              Boolean             @default(false)
   model                String?
-  monthlyOperationLimit Int
   credentialCiphertext Bytes?
   credentialIv         Bytes?
   credentialAuthTag    Bytes?
@@ -148,20 +139,6 @@ model ProviderSetting {
 
   @@unique([ownerId, provider])
   @@index([ownerId])
-}
-
-model ProviderUsage {
-  id             String              @id @default(cuid())
-  ownerId        String
-  owner          User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  provider       IntegrationProvider
-  month          String
-  operationCount Int                 @default(0)
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-
-  @@unique([ownerId, provider, month])
-  @@index([ownerId, month])
 }
 
 model Property {
@@ -267,21 +244,6 @@ model PropertyImport {
   @@index([ownerId])
   @@index([ownerId, kind, status])
   @@index([createdAt])
-}
-
-model MutationAudit {
-  ownerId String
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  id         String   @id @default(cuid())
-  action     String
-  targetType String
-  targetId   String?
-  ipHash     String
-  createdAt  DateTime @default(now())
-
-  @@index([ipHash, action, createdAt])
-  @@index([ownerId])
-  @@index([action, createdAt])
 }
 
 model PropertyImage {

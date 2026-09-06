@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { MaterialIcon } from '@/components/material-icon';
 import { BodyNavigation } from '@/components/body-navigation';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 
 export function DraftList({ drafts }: { drafts: PropertyDto[] }) {
   return (
