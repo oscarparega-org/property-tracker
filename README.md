@@ -59,7 +59,7 @@ npm run wt:remove -- /absolute/path/to/worktree
 
 The removal command refuses dirty worktrees by default. Passing `--force` explicitly discards uncommitted changes. If `.env.worktree` has already been deleted, cleanup derives the Compose project from the checkout path so its containers and volume are still removed. Shared Docker images, Docker build cache, and the npm download cache are retained because they make subsequent worktrees faster.
 
-The committed `orca.yaml` runs `npm ci && npm run wt:init` when Orca creates a worktree and runs `npm run wt:down` before Orca archives or removes it. In Orca repository settings, select **orca.yaml only**, **Run by default**, and **Wait for setup to complete before starting agent**; leave the local Setup Script and Archive Script fields blank. Configure a default app terminal to run `npm run wt:dev` if every revealed worktree should launch the app automatically. Create a worktree with `orca worktree create --name <name> --agent codex --prompt "<task>" --setup run --json`.
+The committed `orca.yaml` runs `npm ci && npm run wt:init` when Orca creates a worktree, starts `npm run wt:dev` in a dedicated **App** terminal after setup, opens the generated worktree frontend URL in an Orca browser tab when it is ready, and runs `npm run wt:down` before Orca archives or removes it. In Orca repository settings, select **orca.yaml only**, **Run by default**, and **Wait for setup to complete before starting agent**; leave the local Setup Script and Archive Script fields blank. Create a worktree with `orca worktree create --name <name> --agent codex --prompt "<task>" --setup run --json`.
 
 ## Personal provider configuration
 

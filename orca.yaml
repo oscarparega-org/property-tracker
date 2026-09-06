@@ -1,3 +1,7 @@
+defaultTabs:
+  - title: App
+    command: npm run wt:dev
+
 scripts:
   setup: |
     set -e
