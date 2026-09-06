@@ -159,11 +159,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark"><MaterialIcon name="home" /></span>
-          <div><strong>Casa Clara</strong><small>mi radar inmobiliario</small></div>
-        </div>
+      <header className="workspace-toolbar">
         <div className="portfolio-count">
           <span>{filtered.length}</span>
           <small>{filtered.length === 1 ? "propiedad" : "propiedades"}</small>

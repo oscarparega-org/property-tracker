@@ -38,7 +38,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
 
   return (
     <form className="mx-auto mt-16 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm" onSubmit={submit}>
-      <h1 className="text-3xl font-semibold tracking-tight">{isSignUp ? 'Crear una cuenta' : 'Bienvenido a Casa Clara'}</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">{isSignUp ? 'Crear una cuenta' : 'Bienvenido a House Tracker'}</h1>
       <p className="mt-2 text-sm text-slate-600">{isSignUp ? 'Tu colección privada de propiedades empieza aquí.' : 'Inicia sesión con tu correo y contraseña.'}</p>
       {isSignUp ? <Field autoComplete="name" label="Nombre" name="name" type="text" /> : null}
       <Field autoComplete="email" label="Correo" name="email" type="email" />

@@ -293,7 +293,7 @@ async function fetchPublicHtml(value: string) {
     const requestOptions: RequestInit & { dispatcher: typeof publicDispatcher } = {
       dispatcher: publicDispatcher,
       redirect: "manual",
-      headers: { "user-agent": "CasaClara/1.0 (+property import)", accept: "text/html,application/xhtml+xml" },
+      headers: { "user-agent": "HouseTracker/1.0 (+property import)", accept: "text/html,application/xhtml+xml" },
       signal: AbortSignal.timeout(12_000),
     };
     const response = await fetch(current, requestOptions);
@@ -318,7 +318,7 @@ async function fetchPublicJson(value: string, options: { method?: "GET" | "POST"
   const referer = options.referer ? (await assertSafePublicUrl(options.referer)).toString() : undefined;
   for (let redirects = 0; redirects <= 3; redirects += 1) {
     const headers: Record<string, string> = {
-      "user-agent": "Mozilla/5.0 (compatible; CasaClara/1.0; +property import)",
+      "user-agent": "Mozilla/5.0 (compatible; HouseTracker/1.0; +property import)",
       accept: "application/json, text/plain, */*",
     };
     if (referer) {

@@ -8,6 +8,7 @@ import { PropertyLocationMap } from "@/components/property-location-map";
 import type { PropertyDto } from "@template/shared";
 import { ActionForm } from "@/components/action-form";
 import { PropertyEnhancement } from "@/components/property-enhancement";
+import { BodyNavigation } from "@/components/body-navigation";
 
 
 
@@ -38,10 +39,7 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
 
   return (
     <main className="detail-page">
-      <header className="detail-topbar">
-        <Link href="/" className="detail-brand"><span><MaterialIcon name="home" /></span><strong>Casa Clara</strong></Link>
-        <Link href="/" className="back-link"><MaterialIcon name="arrowBack" /> Volver al mapa y la lista</Link>
-      </header>
+      <BodyNavigation current={property.title} backLabel="Volver al mapa y la lista" />
 
       <div className="detail-layout">
         {property.publicationStatus === "DRAFT" && <div className="draft-banner"><span><MaterialIcon name="draft" /> Esta propiedad es un borrador</span><Link href={`/properties/${property.id}/review`}>Revisar y publicar</Link></div>}

@@ -39,7 +39,7 @@ export function buildDeploymentConfig(source = process.env) {
     resourceTag: `github-repo-${repositoryId}`,
     frontendUrl: `https://${repo}-dev.${baseDomain}`,
     apiPublicUrl: `https://${repo}-api-dev.${baseDomain}`,
-    displayName: repo.split('-').map((part) => part ? part.charAt(0).toUpperCase() + part.slice(1) : part).join(' ')
+    displayName: 'House Tracker'
   };
 }
 
