@@ -9,6 +9,7 @@ import type { PropertyDto } from '@house-tracker/shared';
 import { PropertyEditor } from '@/components/property-editor';
 import { PropertyMap } from '@/components/property-map';
 import { PropertyBoard } from '@/components/property-board';
+import { SearchContextBar } from '@/components/search-context-bar';
 
 type ViewMode = 'board' | 'split' | 'list' | 'map';
 
@@ -47,11 +48,15 @@ function Metric({ value, label }: { value: string | number | null; label: string
   );
 }
 
-function PropertyCard({ property }: { property: PropertyDto }) {
+function PropertyCard({ property, searchId }: { property: PropertyDto; searchId: string }) {
   const hero = property.images[0];
   return (
     <article className={`property-card${property.archivedAt ? ' is-archived' : ''}`}>
-      <Link className="card-select" href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
+      <Link
+        className="card-select"
+        href={`/searches/${searchId}/properties/${property.id}`}
+        aria-label={`Ver ${property.title}`}
+      >
         <div className="card-image-wrap">
           {hero ? (
             // Listing images can come from arbitrary model-provided domains.
@@ -84,7 +89,7 @@ function PropertyCard({ property }: { property: PropertyDto }) {
       </Link>
 
       <div className="card-actions">
-        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite)}>
+        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite, searchId)}>
           <button
             className={`favorite-button${property.isFavorite ? ' is-active' : ''}`}
             type="submit"
@@ -142,9 +147,11 @@ function FilterDialog({
 
 export function PropertyWorkspace({
   initialProperties,
+  searchId,
   initialView = 'list'
 }: {
   initialProperties: PropertyDto[];
+  searchId: string;
   initialView?: 'board' | 'list';
 }) {
   const [view, setView] = useState<ViewMode>(initialView);
@@ -270,7 +277,7 @@ export function PropertyWorkspace({
       current.map((property) => (property.id === id ? { ...property, decisionStatus: nextStatus } : property))
     );
     try {
-      const saved = await setDecisionStatusAction(id, nextStatus);
+      const saved = await setDecisionStatusAction(id, nextStatus, searchId);
       setProperties((current) => current.map((property) => (property.id === id ? saved : property)));
     } catch (cause) {
       setProperties((current) => current.map((property) => (property.id === id ? previous : property)));
@@ -282,6 +289,7 @@ export function PropertyWorkspace({
 
   return (
     <main className="app-shell">
+      <SearchContextBar searchId={searchId} />
       <header className="workspace-toolbar">
         <div className="portfolio-count">
           <span>{filtered.length}</span>
@@ -293,10 +301,10 @@ export function PropertyWorkspace({
               {mode === 'board' ? 'Proceso' : mode === 'list' ? 'Lista' : mode === 'split' ? 'Mitad' : 'Mapa'}
             </button>
           ))}
-          <Link className="topbar-link" href="/drafts">
+          <Link className="topbar-link" href={`/searches/${searchId}/drafts`}>
             Borradores
           </Link>
-          <Link className="topbar-add" href="/properties/new">
+          <Link className="topbar-add" href={`/searches/${searchId}/properties/new`}>
             <MaterialIcon name="add" /> Agregar
           </Link>
         </div>
@@ -307,7 +315,7 @@ export function PropertyWorkspace({
           <span>{filtered.length}</span>
           <strong>{filtered.length === 1 ? 'propiedad' : 'propiedades'}</strong>
         </div>
-        <Link href="/properties/new" aria-label="Agregar propiedad">
+        <Link href={`/searches/${searchId}/properties/new`} aria-label="Agregar propiedad">
           <MaterialIcon name="add" />
         </Link>
       </div>
@@ -342,12 +350,12 @@ export function PropertyWorkspace({
       ) : null}
 
       {view === 'board' ? (
-        <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} />
+        <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} searchId={searchId} />
       ) : (
         <section className={`workspace view-${view}`}>
           <div className="list-pane">
             {filtered.length ? (
-              filtered.map((property) => <PropertyCard key={property.id} property={property} />)
+              filtered.map((property) => <PropertyCard key={property.id} property={property} searchId={searchId} />)
             ) : (
               <div className="empty-state">
                 <span>
@@ -355,7 +363,7 @@ export function PropertyWorkspace({
                 </span>
                 <h2>No hay propiedades aquí</h2>
                 <p>Ajusta los filtros o agrega una por URL o manualmente.</p>
-                <Link className="button primary" href="/properties/new">
+                <Link className="button primary" href={`/searches/${searchId}/properties/new`}>
                   Agregar propiedad
                 </Link>
               </div>

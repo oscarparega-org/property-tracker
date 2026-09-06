@@ -20,6 +20,7 @@ function DecisionForm({ property, onSuccess }: { property: PropertyDto; onSucces
   return (
     <ActionForm action={saveDecisionAction} className="decision-form" onSuccess={onSuccess}>
       <input type="hidden" name="id" value={property.id} />
+      <input type="hidden" name="searchId" value={property.searchId ?? ''} />
       <label>
         <span>Estado</span>
         <select name="decisionStatus" defaultValue={property.decisionStatus}>
@@ -109,11 +110,12 @@ function DecisionDialog({ property, onClose }: { property: PropertyDto; onClose:
 
 export function PropertyDecisionPanel({ property }: { property: PropertyDto }) {
   const [open, setOpen] = useState(false);
+  const searchName = property.memberships.find((item) => item.searchId === property.searchId)?.name;
   return (
     <>
       <aside className="decision-panel">
         <div className="decision-heading">
-          <span>Espacio personal</span>
+          <span>{searchName ? `Decisión en ${searchName}` : 'Espacio personal'}</span>
           <h2>Mi decisión</h2>
           <p>Actualiza tu evaluación sin salir de esta página.</p>
         </div>

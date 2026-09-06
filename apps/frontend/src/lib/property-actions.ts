@@ -17,25 +17,34 @@ export async function savePropertyAction(form: FormData) {
 }
 export async function saveDecisionAction(form: FormData) {
   normalizeVisit(form);
-  return requestApi<PropertyDto>(`/api/properties/${encodeURIComponent(String(form.get('id')))}/decision`, {
+  const searchId = String(form.get('searchId') || '');
+  const prefix = searchId ? `/api/searches/${encodeURIComponent(searchId)}` : '/api';
+  return requestApi<PropertyDto>(`${prefix}/properties/${encodeURIComponent(String(form.get('id')))}/decision`, {
     method: 'PATCH',
     body: form
   });
 }
-export async function toggleFavoriteAction(id: string, isFavorite: boolean) {
-  return requestApi<PropertyDto>(`/api/properties/${encodeURIComponent(id)}/favorite`, {
+export async function toggleFavoriteAction(id: string, isFavorite: boolean, searchId?: string | null) {
+  const prefix = searchId ? `/api/searches/${encodeURIComponent(searchId)}` : '/api';
+  return requestApi<PropertyDto>(`${prefix}/properties/${encodeURIComponent(id)}/favorite`, {
     method: 'PATCH',
     body: JSON.stringify({ isFavorite } satisfies FavoriteRequest)
   });
 }
-export async function setArchivedAction(id: string, archived: boolean) {
-  return requestApi<PropertyDto>(`/api/properties/${encodeURIComponent(id)}/archive`, {
+export async function setArchivedAction(id: string, archived: boolean, searchId?: string | null) {
+  const prefix = searchId ? `/api/searches/${encodeURIComponent(searchId)}` : '/api';
+  return requestApi<PropertyDto>(`${prefix}/properties/${encodeURIComponent(id)}/archive`, {
     method: 'PATCH',
     body: JSON.stringify({ archived } satisfies ArchiveRequest)
   });
 }
-export async function setDecisionStatusAction(id: string, decisionStatus: PropertyDto['decisionStatus']) {
-  return requestApi<PropertyDto>(`/api/properties/${encodeURIComponent(id)}/status`, {
+export async function setDecisionStatusAction(
+  id: string,
+  decisionStatus: PropertyDto['decisionStatus'],
+  searchId?: string | null
+) {
+  const prefix = searchId ? `/api/searches/${encodeURIComponent(searchId)}` : '/api';
+  return requestApi<PropertyDto>(`${prefix}/properties/${encodeURIComponent(id)}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ decisionStatus } satisfies DecisionStatusRequest)
   });

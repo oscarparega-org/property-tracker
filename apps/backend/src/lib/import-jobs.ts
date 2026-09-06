@@ -79,10 +79,28 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
       hasLocation: Boolean(result.input.property.address.formatted || result.input.property.coordinates)
     });
     await db.$transaction(async (tx) => {
+      if (job.kind === 'STANDARD')
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${job.ownerId}:search-limit`}, 0))::text`;
+      const targets =
+        job.kind === 'STANDARD'
+          ? await tx.propertyImportTarget.findMany({ where: { importId: job.id, ownerId: job.ownerId } })
+          : [];
+      if (job.kind === 'STANDARD' && !targets.length)
+        throw new ListingValidationError('La búsqueda de destino ya no existe.');
       const stored =
         job.kind === 'ENHANCEMENT'
           ? { property: await tx.property.findFirstOrThrow({ where: { id: job.propertyId!, ownerId: job.ownerId } }) }
           : await upsertProperty(tx, result.input, job.ownerId);
+      if (job.kind === 'STANDARD') {
+        await tx.searchProperty.createMany({
+          data: targets.map((target) => ({
+            ownerId: job.ownerId,
+            searchId: target.searchId,
+            propertyId: stored.property.id
+          })),
+          skipDuplicates: true
+        });
+      }
       await tx.propertyImport.update({
         where: { id, ownerId: job.ownerId },
         data: {

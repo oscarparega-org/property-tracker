@@ -9,6 +9,7 @@ import type { PropertyDto } from '@house-tracker/shared';
 import { ActionForm } from '@/components/action-form';
 import { PropertyEnhancement } from '@/components/property-enhancement';
 import { BodyNavigation } from '@/components/body-navigation';
+import { PropertyMemberships } from '@/components/property-memberships';
 
 const typeLabels = {
   APARTMENT: 'Departamento',
@@ -42,7 +43,11 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
 
   return (
     <main className="detail-page">
-      <BodyNavigation current={property.title} backLabel="Volver al mapa y la lista" />
+      <BodyNavigation
+        current={property.title}
+        backLabel="Volver al mapa y la lista"
+        backHref={property.searchId ? `/searches/${property.searchId}` : '/'}
+      />
 
       <div className="detail-layout">
         {property.publicationStatus === 'DRAFT' && (
@@ -50,7 +55,15 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
             <span>
               <MaterialIcon name="draft" /> Esta propiedad es un borrador
             </span>
-            <Link href={`/properties/${property.id}/review`}>Revisar y publicar</Link>
+            <Link
+              href={
+                property.searchId
+                  ? `/searches/${property.searchId}/properties/${property.id}/review`
+                  : `/properties/${property.id}/review`
+              }
+            >
+              Revisar y publicar
+            </Link>
           </div>
         )}
         <div className="detail-title-row">
@@ -64,7 +77,7 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
               <small>Precio publicado</small>
               <strong>{money(property.priceAmount, property.priceCurrency)}</strong>
             </div>
-            <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite)}>
+            <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite, property.searchId)}>
               <button
                 className={`detail-favorite${property.isFavorite ? ' is-active' : ''}`}
                 type="submit"
@@ -237,6 +250,7 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
               <pre>{JSON.stringify(property.sourceMetadata, null, 2)}</pre>
             </details>
           </section>
+          <PropertyMemberships property={property} />
         </article>
 
         <PropertyDecisionPanel property={property} />

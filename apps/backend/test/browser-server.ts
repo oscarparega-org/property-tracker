@@ -52,7 +52,7 @@ globalThis.fetch = async (input, init) => {
   }
   return fetchOriginal(input, init);
 };
-const port = Number(process.env.BROWSER_TEST_API_PORT ?? 3000);
+const port = Number(process.env.BROWSER_TEST_API_PORT ?? process.env.PORT ?? 3000);
 const server = serve({ fetch: createApp().fetch, port });
 let stopping = false;
 async function stop() {

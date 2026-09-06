@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { PropertyEditor } from '@/components/property-editor';
-import type { PropertyDto } from '@house-tracker/shared';
+import type { PropertyDto, SearchDto } from '@house-tracker/shared';
 
 const emptyProperty: PropertyDto = {
+  searchId: null,
+  memberships: [],
   id: '',
   sourceProvider: 'MANUAL',
   sourceUrl: null,
@@ -65,7 +67,14 @@ const emptyProperty: PropertyDto = {
   features: []
 };
 
-export function NewManualEditor() {
+export function NewManualEditor({ searchId, searches }: { searchId: string; searches: SearchDto[] }) {
   const router = useRouter();
-  return <PropertyEditor property={emptyProperty} creating onClose={() => router.push('/')} />;
+  return (
+    <PropertyEditor
+      property={{ ...emptyProperty, searchId }}
+      creating
+      searchOptions={searches}
+      onClose={() => router.push(`/searches/${searchId}`)}
+    />
+  );
 }

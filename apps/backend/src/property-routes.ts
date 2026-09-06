@@ -9,7 +9,9 @@ import {
   importRequestSchema,
   favoriteRequestSchema,
   archiveRequestSchema,
-  propertyInputSchema
+  propertyInputSchema,
+  membershipRequestSchema,
+  deletePropertyRequestSchema
 } from '@house-tracker/shared';
 import type { AppVariables } from './types.js';
 import {
@@ -23,6 +25,7 @@ import { saveProperty } from './lib/property-editor.js';
 import { assertSafePublicUrl } from './lib/import-extraction.js';
 import { enabledProviderCredential } from './lib/provider-credentials.js';
 import { importDebug } from './lib/import-debug.js';
+import { ensurePrimarySearch, ownedSearch, validateSearchIds } from './lib/search-store.js';
 
 export function propertyRoutes(db: PrismaClient) {
   const routes = new Hono<{ Variables: AppVariables }>();
@@ -37,6 +40,83 @@ export function propertyRoutes(db: PrismaClient) {
     if (!property) throw new HTTPException(404, { message: 'Propiedad no encontrada.' });
     return property;
   }
+  async function resolvedSearchIds(ownerId: string, requested?: string[]) {
+    if (requested?.length) {
+      if (!(await validateSearchIds(db, ownerId, requested)))
+        throw new HTTPException(404, { message: 'Una de las búsquedas no existe.' });
+      return requested;
+    }
+    const primary = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${ownerId}:search-limit`}, 0))::text`;
+      return ensurePrimarySearch(tx, ownerId, true);
+    });
+    if (!primary) throw new HTTPException(409, { message: 'Crea una búsqueda antes de agregar propiedades.' });
+    return [primary.id];
+  }
+  async function ownedMembership(searchId: string, propertyId: string, ownerId: string) {
+    const membership = await db.searchProperty.findFirst({
+      where: { searchId, propertyId, ownerId },
+      include: { search: true }
+    });
+    if (!membership) throw new HTTPException(404, { message: 'Propiedad no encontrada en esta búsqueda.' });
+    return membership;
+  }
+  async function updateLifecycle(
+    searchId: string,
+    propertyId: string,
+    ownerId: string,
+    data: Prisma.SearchPropertyUpdateInput
+  ) {
+    await ownedMembership(searchId, propertyId, ownerId);
+    await db.$transaction(async (tx) => {
+      await tx.searchProperty.update({ where: { searchId_propertyId: { searchId, propertyId } }, data });
+    });
+    return getProperty(db, propertyId, ownerId, searchId);
+  }
+  routes.get('/searches/:searchId/properties', async (c) => {
+    const ownerId = owner(c);
+    if (!(await ownedSearch(db, ownerId, c.req.param('searchId'))))
+      throw new HTTPException(404, { message: 'Búsqueda no encontrada.' });
+    const status = z.enum(['PUBLISHED', 'DRAFT']).parse(c.req.query('publicationStatus') || 'PUBLISHED');
+    return c.json(
+      await (status === 'DRAFT'
+        ? listDraftProperties(db, ownerId, c.req.param('searchId'))
+        : listProperties(db, ownerId, c.req.param('searchId')))
+    );
+  });
+  routes.get('/searches/:searchId/properties/:id', async (c) => {
+    const property = await getProperty(db, c.req.param('id'), owner(c), c.req.param('searchId'));
+    if (!property) throw new HTTPException(404, { message: 'Propiedad no encontrada en esta búsqueda.' });
+    return c.json(property);
+  });
+  routes.patch('/searches/:searchId/properties/:id/status', async (c) => {
+    const data = decisionStatusRequestSchema.parse(await c.req.json());
+    return c.json(await updateLifecycle(c.req.param('searchId'), c.req.param('id'), owner(c), data));
+  });
+  routes.patch('/searches/:searchId/properties/:id/favorite', async (c) => {
+    const data = favoriteRequestSchema.parse(await c.req.json());
+    return c.json(await updateLifecycle(c.req.param('searchId'), c.req.param('id'), owner(c), data));
+  });
+  routes.patch('/searches/:searchId/properties/:id/archive', async (c) => {
+    const { archived } = archiveRequestSchema.parse(await c.req.json());
+    return c.json(
+      await updateLifecycle(c.req.param('searchId'), c.req.param('id'), owner(c), {
+        archivedAt: archived ? new Date() : null
+      })
+    );
+  });
+  routes.patch('/searches/:searchId/properties/:id/decision', async (c) => {
+    const form = await c.req.formData();
+    const { id: _id, ...data } = decisionSchema.parse({ ...Object.fromEntries(form), id: c.req.param('id') });
+    void _id;
+    return c.json(
+      await updateLifecycle(c.req.param('searchId'), c.req.param('id'), owner(c), {
+        ...data,
+        isFavorite: form.get('isFavorite') === 'on',
+        archivedAt: form.get('archived') === 'on' ? new Date() : null
+      })
+    );
+  });
   routes.get('/properties', async (c) => {
     const status = z.enum(['PUBLISHED', 'DRAFT']).parse(c.req.query('publicationStatus') || 'PUBLISHED');
     return c.json(await (status === 'DRAFT' ? listDraftProperties(db, owner(c)) : listProperties(db, owner(c))));
@@ -129,51 +209,99 @@ export function propertyRoutes(db: PrismaClient) {
   });
   routes.get('/properties/:id', async (c) => c.json(await owned(c.req.param('id'), owner(c))));
   routes.post('/properties', async (c) => {
-    return c.json(await saveProperty(db, owner(c), await c.req.formData()), 201);
+    const ownerId = owner(c);
+    const form = await c.req.formData();
+    const searchIds = await resolvedSearchIds(ownerId, form.getAll('searchIds').map(String));
+    const result = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${ownerId}:search-limit`}, 0))::text`;
+      if (!(await validateSearchIds(tx, ownerId, searchIds)))
+        throw new HTTPException(404, { message: 'Una de las búsquedas no existe.' });
+      const property = await saveProperty(tx, ownerId, form);
+      await tx.searchProperty.createMany({
+        data: searchIds.map((searchId) => ({ ownerId, searchId, propertyId: property.id }))
+      });
+      return getProperty(tx, property.id, ownerId, searchIds[0]);
+    });
+    return c.json(result, 201);
   });
   routes.put('/properties/:id', async (c) => {
     const property = await owned(c.req.param('id'), owner(c));
-    return c.json(await saveProperty(db, owner(c), await c.req.formData(), property.id));
+    const form = await c.req.formData();
+    await saveProperty(db, owner(c), form, property.id);
+    const searchId = String(form.get('searchId') || '') || undefined;
+    const scoped = await getProperty(db, property.id, owner(c), searchId);
+    return c.json(scoped ?? (await getProperty(db, property.id, owner(c))));
+  });
+  routes.put('/properties/:id/searches', async (c) => {
+    const ownerId = owner(c);
+    const property = await owned(c.req.param('id'), ownerId);
+    const { searchIds } = membershipRequestSchema.parse(await c.req.json());
+    await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${ownerId}:search-limit`}, 0))::text`;
+      if (!(await validateSearchIds(tx, ownerId, searchIds)))
+        throw new HTTPException(404, { message: 'Una de las búsquedas no existe.' });
+      await tx.searchProperty.deleteMany({
+        where: { propertyId: property.id, ownerId, searchId: { notIn: searchIds } }
+      });
+      await tx.searchProperty.createMany({
+        data: searchIds.map((searchId) => ({ ownerId, searchId, propertyId: property.id })),
+        skipDuplicates: true
+      });
+    });
+    return c.json(await getProperty(db, property.id, ownerId, searchIds[0]));
+  });
+  routes.delete('/properties/:id', async (c) => {
+    const ownerId = owner(c);
+    const { confirmationTitle } = deletePropertyRequestSchema.parse(await c.req.json());
+    const property = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${ownerId}:search-limit`}, 0))::text`;
+      const current = await tx.property.findFirst({ where: { id: c.req.param('id'), ownerId } });
+      if (!current) throw new HTTPException(404, { message: 'Propiedad no encontrada.' });
+      if (confirmationTitle !== current.title)
+        throw new HTTPException(400, { message: 'El título de confirmación no coincide.' });
+      await tx.property.delete({ where: { id: current.id, ownerId } });
+      return current;
+    });
+    return c.json({ deleted: true, propertyId: property.id });
   });
   routes.patch('/properties/:id/decision', async (c) => {
     const id = c.req.param('id');
-    await owned(id, owner(c));
+    const property = await owned(id, owner(c));
     const form = await c.req.formData();
     const { id: _id, ...data } = decisionSchema.parse({ ...Object.fromEntries(form), id });
     void _id;
-    await db.property.update({
-      where: { id, ownerId: owner(c) },
-      data: {
-        ...data,
-        isFavorite: form.get('isFavorite') === 'on',
-        archivedAt: form.get('archived') === 'on' ? new Date() : null
-      }
-    });
-    return c.json(await owned(id, owner(c)));
+    const update = {
+      ...data,
+      isFavorite: form.get('isFavorite') === 'on',
+      archivedAt: form.get('archived') === 'on' ? new Date() : null
+    };
+    if (!property.searchId) throw new HTTPException(409, { message: 'La propiedad no pertenece a una búsqueda.' });
+    return c.json(await updateLifecycle(property.searchId, id, owner(c), update));
   });
   routes.patch('/properties/:id/status', async (c) => {
     const id = c.req.param('id');
-    await owned(id, owner(c));
+    const property = await owned(id, owner(c));
     const data = decisionStatusRequestSchema.parse(await c.req.json());
-    await db.property.update({ where: { id, ownerId: owner(c) }, data });
-    return c.json(await owned(id, owner(c)));
+    if (!property.searchId) throw new HTTPException(409, { message: 'La propiedad no pertenece a una búsqueda.' });
+    return c.json(await updateLifecycle(property.searchId, id, owner(c), data));
   });
   routes.patch('/properties/:id/favorite', async (c) => {
     const id = c.req.param('id');
-    await owned(id, owner(c));
+    const property = await owned(id, owner(c));
     const data = favoriteRequestSchema.parse(await c.req.json());
-    await db.property.update({ where: { id, ownerId: owner(c) }, data });
-    return c.json(await owned(id, owner(c)));
+    if (!property.searchId) throw new HTTPException(409, { message: 'La propiedad no pertenece a una búsqueda.' });
+    return c.json(await updateLifecycle(property.searchId, id, owner(c), data));
   });
   routes.patch('/properties/:id/archive', async (c) => {
     const id = c.req.param('id');
-    await owned(id, owner(c));
+    const property = await owned(id, owner(c));
     const { archived } = archiveRequestSchema.parse(await c.req.json());
-    await db.property.update({ where: { id, ownerId: owner(c) }, data: { archivedAt: archived ? new Date() : null } });
-    return c.json(await owned(id, owner(c)));
+    if (!property.searchId) throw new HTTPException(409, { message: 'La propiedad no pertenece a una búsqueda.' });
+    return c.json(await updateLifecycle(property.searchId, id, owner(c), { archivedAt: archived ? new Date() : null }));
   });
   routes.post('/imports', async (c) => {
-    const { url } = importRequestSchema.parse(await c.req.json());
+    const { url, searchIds: requestedSearchIds } = importRequestSchema.parse(await c.req.json());
+    const searchIds = await resolvedSearchIds(owner(c), requestedSearchIds);
     const canonicalUrl = canonicalizeListingUrl(url);
     try {
       await assertSafePublicUrl(canonicalUrl);
@@ -182,19 +310,38 @@ export function propertyRoutes(db: PrismaClient) {
     }
     // Serialize duplicate checks per account and URL. Never reuse another user's job.
     const result = await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${owner(c)}:search-limit`}, 0))::text`;
+      if (!(await validateSearchIds(tx, owner(c), searchIds)))
+        throw new HTTPException(404, { message: 'Una de las búsquedas no existe.' });
       const lock = `${owner(c)}:${canonicalUrl}`;
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))::text`;
       const existing = await tx.property.findFirst({ where: { ownerId: owner(c), sourceUrl: canonicalUrl } });
-      if (existing)
+      if (existing) {
+        await tx.searchProperty.createMany({
+          data: searchIds.map((searchId) => ({ ownerId: owner(c), searchId, propertyId: existing.id })),
+          skipDuplicates: true
+        });
         return { existing: true as const, propertyId: existing.id, publicationStatus: existing.publicationStatus };
+      }
       const active = await tx.propertyImport.findFirst({
         where: { ownerId: owner(c), canonicalUrl, status: { in: ['QUEUED', 'FETCHING', 'RENDERING', 'EXTRACTING'] } }
       });
       if (active) {
+        await tx.propertyImportTarget.createMany({
+          data: searchIds.map((searchId) => ({ ownerId: owner(c), importId: active.id, searchId })),
+          skipDuplicates: true
+        });
         importDebug(active.id, 'import.queue.reused', { sourceHost: new URL(canonicalUrl).hostname });
         return { importId: active.id, status: active.status };
       }
-      const job = await tx.propertyImport.create({ data: { ownerId: owner(c), url, canonicalUrl } });
+      const job = await tx.propertyImport.create({
+        data: {
+          ownerId: owner(c),
+          url,
+          canonicalUrl,
+          targets: { create: searchIds.map((searchId) => ({ searchId })) }
+        }
+      });
       importDebug(job.id, 'import.queued', { kind: job.kind, sourceHost: new URL(canonicalUrl).hostname });
       return { importId: job.id, status: job.status };
     });

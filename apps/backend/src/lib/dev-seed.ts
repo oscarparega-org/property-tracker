@@ -23,8 +23,21 @@ export async function seedDevelopmentData(db: PrismaClient, options: Development
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${id}, 0))::text`;
 
+    const search =
+      (await tx.search.findFirst({ where: { ownerId: user.id, isPrimary: true } })) ??
+      (await tx.search.create({
+        data: { ownerId: user.id, name: 'Mi búsqueda', nameKey: 'mi búsqueda', isPrimary: true }
+      }));
+
     const current = await tx.property.findUnique({ where: { id } });
-    if (current) return current;
+    if (current) {
+      await tx.searchProperty.upsert({
+        where: { searchId_propertyId: { searchId: search.id, propertyId: current.id } },
+        create: { ownerId: user.id, searchId: search.id, propertyId: current.id },
+        update: {}
+      });
+      return current;
+    }
 
     // Adopt seeds created before the immutable ID was introduced. Updating the
     // primary key is safe because every property relation uses ON UPDATE CASCADE.
@@ -37,9 +50,17 @@ export async function seedDevelopmentData(db: PrismaClient, options: Development
         ]
       }
     });
-    if (legacy) return tx.property.update({ where: { id: legacy.id }, data: { id } });
+    if (legacy) {
+      const adopted = await tx.property.update({ where: { id: legacy.id }, data: { id } });
+      await tx.searchProperty.upsert({
+        where: { searchId_propertyId: { searchId: search.id, propertyId: adopted.id } },
+        create: { ownerId: user.id, searchId: search.id, propertyId: adopted.id },
+        update: {}
+      });
+      return adopted;
+    }
 
-    return tx.property.create({
+    const created = await tx.property.create({
       data: {
         id,
         ownerId: user.id,
@@ -80,10 +101,6 @@ export async function seedDevelopmentData(db: PrismaClient, options: Development
         agentPhones: ['+52 55 5555 0101'],
         agentEmail: 'mariana@example.com',
         officeName: 'Inmobiliaria Demo',
-        decisionStatus: 'NEW',
-        isFavorite: true,
-        rating: 4,
-        notes: 'Registro inicial del worktree. Puedes editarlo o eliminarlo.',
         publicationStatus: 'PUBLISHED',
         images: {
           create: [
@@ -104,5 +121,16 @@ export async function seedDevelopmentData(db: PrismaClient, options: Development
         }
       }
     });
+    await tx.searchProperty.create({
+      data: {
+        ownerId: user.id,
+        searchId: search.id,
+        propertyId: created.id,
+        isFavorite: true,
+        rating: 4,
+        notes: 'Registro inicial del worktree. Puedes editarlo o eliminarlo.'
+      }
+    });
+    return created;
   });
 }

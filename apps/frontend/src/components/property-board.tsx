@@ -38,16 +38,22 @@ function ProcessCard({
   property,
   busyId,
   onMove,
+  searchId,
   draggable = false
 }: {
   property: PropertyDto;
   busyId: string | null;
   onMove: (id: string, status: PropertyDto['decisionStatus']) => void;
+  searchId: string;
   draggable?: boolean;
 }) {
   return (
     <article className={`kanban-card${busyId === property.id ? ' is-saving' : ''}`} draggable={draggable}>
-      <Link className="kanban-card-main" href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
+      <Link
+        className="kanban-card-main"
+        href={`/searches/${searchId}/properties/${property.id}`}
+        aria-label={`Ver ${property.title}`}
+      >
         <div className="kanban-card-image">
           {property.images[0] ? (
             <img src={property.images[0].url} alt="" />
@@ -92,7 +98,7 @@ function ProcessCard({
             ))}
           </select>
         </label>
-        <Link href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
+        <Link href={`/searches/${searchId}/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
           <MaterialIcon name="arrowForward" />
         </Link>
       </div>
@@ -103,11 +109,13 @@ function ProcessCard({
 export function PropertyBoard({
   properties,
   busyId,
-  onMove
+  onMove,
+  searchId
 }: {
   properties: PropertyDto[];
   busyId: string | null;
   onMove: (id: string, status: PropertyDto['decisionStatus']) => void;
+  searchId: string;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overStatus, setOverStatus] = useState<PropertyDto['decisionStatus'] | null>(null);
@@ -174,7 +182,7 @@ export function PropertyBoard({
                       setOverStatus(null);
                     }}
                   >
-                    <ProcessCard property={property} busyId={busyId} onMove={onMove} draggable />
+                    <ProcessCard property={property} busyId={busyId} onMove={onMove} searchId={searchId} draggable />
                   </div>
                 ))}
                 {!cards.length ? <div className="kanban-empty">Suelta una propiedad aquí</div> : null}
@@ -203,7 +211,13 @@ export function PropertyBoard({
               <div className="mobile-stage-cards">
                 {cards.length ? (
                   cards.map((property) => (
-                    <ProcessCard key={property.id} property={property} busyId={busyId} onMove={onMove} />
+                    <ProcessCard
+                      key={property.id}
+                      property={property}
+                      busyId={busyId}
+                      onMove={onMove}
+                      searchId={searchId}
+                    />
                   ))
                 ) : (
                   <p>Sin propiedades en esta etapa.</p>

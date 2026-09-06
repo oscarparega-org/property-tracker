@@ -5,10 +5,10 @@ import { localDateInput } from '@/lib/date-input';
 import { useEffect, useRef, useState } from 'react';
 import { savePropertyAction, setArchivedAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
-import type { PropertyDto } from '@house-tracker/shared';
+import type { PropertyDto, SearchDto } from '@house-tracker/shared';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
 
-type Props = { property: PropertyDto; onClose: () => void; creating?: boolean };
+type Props = { property: PropertyDto; onClose: () => void; creating?: boolean; searchOptions?: SearchDto[] };
 
 const statuses = [
   ['NEW', 'Nueva'],
@@ -60,7 +60,7 @@ function TextArea({
   );
 }
 
-export function PropertyEditor({ property, onClose, creating = false }: Props) {
+export function PropertyEditor({ property, onClose, creating = false, searchOptions = [] }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [dirty, setDirty] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -108,6 +108,32 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
 
         <ActionForm action={savePropertyAction} className="editor-form" onChange={() => setDirty(true)}>
           <input type="hidden" name="id" value={property.id} />
+          <input type="hidden" name="searchId" value={property.searchId ?? ''} />
+          {creating ? (
+            <section className="editor-search-targets">
+              <h3>Agregar a búsquedas</h3>
+              <div className="search-targets">
+                {searchOptions.map((search) => (
+                  <label key={search.id}>
+                    <input
+                      name="searchIds"
+                      value={search.id}
+                      type="checkbox"
+                      defaultChecked={search.id === property.searchId}
+                      disabled={search.id === property.searchId}
+                    />
+                    {search.id === property.searchId ? (
+                      <input name="searchIds" value={search.id} type="hidden" />
+                    ) : null}
+                    <span>
+                      {search.name}
+                      {search.id === property.searchId ? ' · actual' : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <details className="editor-section" open>
             <summary>
               <span>Información principal</span>
@@ -315,7 +341,7 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
 
         {!creating && (
           <ActionForm
-            action={setArchivedAction.bind(null, property.id, !property.archivedAt)}
+            action={setArchivedAction.bind(null, property.id, !property.archivedAt, property.searchId)}
             className="archive-action"
           >
             <button className="text-button" type="submit">
