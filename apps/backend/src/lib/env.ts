@@ -24,7 +24,8 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): AppEnv
   if (secret.length < 32) throw new Error('BETTER_AUTH_SECRET must contain at least 32 characters');
   if (nodeEnv === 'production') {
     const providerKey = required(source, 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY');
-    if (Buffer.from(providerKey, 'base64').length < 32) throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must contain at least 32 bytes encoded as base64');
+    if (Buffer.from(providerKey, 'base64').length < 32)
+      throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must contain at least 32 bytes encoded as base64');
   }
 
   const frontendUrl = required(source, 'FRONTEND_URL', 'http://localhost:5173');
@@ -37,7 +38,14 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): AppEnv
     port,
     databaseUrl: required(source, 'DATABASE_URL'),
     frontendUrl,
-    trustedOrigins: [...new Set(origins.split(',').map((value) => value.trim()).filter(Boolean))],
+    trustedOrigins: [
+      ...new Set(
+        origins
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+    ],
     betterAuthUrl: required(source, 'BETTER_AUTH_URL', 'http://localhost:3000'),
     betterAuthSecret: secret
   };

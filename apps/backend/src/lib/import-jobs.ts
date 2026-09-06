@@ -1,103 +1,203 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { extractProperty, ListingValidationError } from './import-extraction.js';
 import { upsertProperty } from './property-store.js';
-import { enabledProviderCredential, markProviderCredentialInvalid, providerGlobalLimit } from './provider-credentials.js';
+import {
+  enabledProviderCredential,
+  markProviderCredentialInvalid,
+  providerGlobalLimit
+} from './provider-credentials.js';
 import { importDebug } from './import-debug.js';
 
-export async function reserveProvider(db: PrismaClient, jobId: string, ownerId: string, provider: 'OPENAI' | 'FIRECRAWL', userMaximum: number) {
+export async function reserveProvider(
+  db: PrismaClient,
+  jobId: string,
+  ownerId: string,
+  provider: 'OPENAI' | 'FIRECRAWL',
+  userMaximum: number
+) {
   const globalMaximum = providerGlobalLimit(provider);
   const budgetField = provider === 'FIRECRAWL' ? 'firecrawl' : 'aiCalls';
   const month = new Date().toISOString().slice(0, 7);
-  return db.$transaction(async tx => {
+  return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(731252)::text`;
     const budget = await tx.importBudget.upsert({ where: { month }, create: { month }, update: {} });
     const usage = await tx.providerUsage.upsert({
       where: { ownerId_provider_month: { ownerId, provider, month } },
-      create: { ownerId, provider, month }, update: {},
+      create: { ownerId, provider, month },
+      update: {}
     });
     if (budget[budgetField] >= globalMaximum || usage.operationCount >= userMaximum) return false;
     await tx.importBudget.update({ where: { month }, data: { [budgetField]: { increment: 1 } } });
     await tx.providerUsage.update({ where: { id: usage.id }, data: { operationCount: { increment: 1 } } });
-    if (provider === 'FIRECRAWL') await tx.propertyImport.update({ where: { id: jobId }, data: { firecrawlCredits: { increment: 1 }, status: 'RENDERING' } });
+    if (provider === 'FIRECRAWL')
+      await tx.propertyImport.update({
+        where: { id: jobId },
+        data: { firecrawlCredits: { increment: 1 }, status: 'RENDERING' }
+      });
     return true;
   });
 }
 
 export async function processImportJob(db: PrismaClient, id: string, extract = extractProperty) {
   const startedAt = Date.now();
-  const claimed = await db.propertyImport.updateMany({ where: { id, status: 'QUEUED' }, data: { status: 'FETCHING', processingStartedAt: new Date(), errorMessage: null } });
-  if (!claimed.count) { importDebug(id, 'worker.claim.skipped', { reason: 'not-queued' }); return false; }
+  const claimed = await db.propertyImport.updateMany({
+    where: { id, status: 'QUEUED' },
+    data: { status: 'FETCHING', processingStartedAt: new Date(), errorMessage: null }
+  });
+  if (!claimed.count) {
+    importDebug(id, 'worker.claim.skipped', { reason: 'not-queued' });
+    return false;
+  }
   const job = await db.propertyImport.findUniqueOrThrow({ where: { id } });
-  importDebug(id, 'worker.claimed', { kind: job.kind, attempt: job.retryCount + 1, sourceHost: new URL(job.canonicalUrl).hostname });
+  importDebug(id, 'worker.claimed', {
+    kind: job.kind,
+    attempt: job.retryCount + 1,
+    sourceHost: new URL(job.canonicalUrl).hostname
+  });
   const [firecrawl, openai] = await Promise.all([
     job.kind === 'ENHANCEMENT' ? enabledProviderCredential(db, job.ownerId, 'FIRECRAWL') : Promise.resolve(null),
-    enabledProviderCredential(db, job.ownerId, 'OPENAI'),
+    enabledProviderCredential(db, job.ownerId, 'OPENAI')
   ]);
   const heartbeat = setInterval(() => {
-    void db.propertyImport.updateMany({ where: { id, status: { in: ['FETCHING', 'RENDERING', 'EXTRACTING'] } }, data: { processingStartedAt: new Date() } }).catch(() => undefined);
+    void db.propertyImport
+      .updateMany({
+        where: { id, status: { in: ['FETCHING', 'RENDERING', 'EXTRACTING'] } },
+        data: { processingStartedAt: new Date() }
+      })
+      .catch(() => undefined);
   }, 30_000);
   try {
-    importDebug(id, 'providers.resolved', { openaiEnabled: Boolean(openai?.model), openaiModel: openai?.model ?? null, firecrawlEnabled: Boolean(firecrawl) });
-    if (job.kind === 'ENHANCEMENT' && (!firecrawl || !openai?.model)) throw new ListingValidationError('La mejora requiere Firecrawl y OpenAI activos. Revisa tus integraciones.');
+    importDebug(id, 'providers.resolved', {
+      openaiEnabled: Boolean(openai?.model),
+      openaiModel: openai?.model ?? null,
+      firecrawlEnabled: Boolean(firecrawl)
+    });
+    if (job.kind === 'ENHANCEMENT' && (!firecrawl || !openai?.model))
+      throw new ListingValidationError('La mejora requiere Firecrawl y OpenAI activos. Revisa tus integraciones.');
     const result = await extract(job.canonicalUrl, {
       mode: job.kind === 'ENHANCEMENT' ? 'DEEP' : 'STANDARD',
       debug: (stage, details = {}) => importDebug(id, stage, details),
-      ...(firecrawl ? { firecrawl: {
-        credential: firecrawl.credential,
-        reserve: () => reserveProvider(db, id, job.ownerId, 'FIRECRAWL', firecrawl.monthlyOperationLimit),
-        onInvalidCredential: () => markProviderCredentialInvalid(db, firecrawl.settingId),
-      } } : {}),
-      ...(openai?.model ? { openai: {
-        credential: openai.credential,
-        model: openai.model,
-        reserve: () => reserveProvider(db, id, job.ownerId, 'OPENAI', openai.monthlyOperationLimit),
-        onInvalidCredential: () => markProviderCredentialInvalid(db, openai.settingId),
-      } } : {}),
+      ...(firecrawl
+        ? {
+            firecrawl: {
+              credential: firecrawl.credential,
+              reserve: () => reserveProvider(db, id, job.ownerId, 'FIRECRAWL', firecrawl.monthlyOperationLimit),
+              onInvalidCredential: () => markProviderCredentialInvalid(db, firecrawl.settingId)
+            }
+          }
+        : {}),
+      ...(openai?.model
+        ? {
+            openai: {
+              credential: openai.credential,
+              model: openai.model,
+              reserve: () => reserveProvider(db, id, job.ownerId, 'OPENAI', openai.monthlyOperationLimit),
+              onInvalidCredential: () => markProviderCredentialInvalid(db, openai.settingId)
+            }
+          }
+        : {})
     });
     await db.propertyImport.update({ where: { id }, data: { status: 'EXTRACTING' } });
-    importDebug(id, 'extraction.completed', { strategy: result.strategy, provider: result.provider, firecrawlCredits: result.firecrawlCredits, imageCount: result.input.images.length, featureCount: result.input.features.length, hasPrice: result.input.property.price.amount !== null, hasLocation: Boolean(result.input.property.address.formatted || result.input.property.coordinates) });
-    await db.$transaction(async tx => {
-      const stored = job.kind === 'ENHANCEMENT'
-        ? { property: await tx.property.findFirstOrThrow({ where: { id: job.propertyId!, ownerId: job.ownerId } }) }
-        : await upsertProperty(tx, result.input, job.ownerId);
-      await tx.propertyImport.update({ where: { id, ownerId: job.ownerId }, data: {
-        status: 'READY', propertyId: stored.property.id,
-        draftData: result.input as unknown as Prisma.InputJsonValue,
-        evidence: result.evidence as Prisma.InputJsonValue,
-        strategy: result.strategy, provider: result.provider,
-        inputTokens: result.inputTokens, outputTokens: result.outputTokens,
-        completedAt: new Date(), processingStartedAt: null,
-      } });
-      importDebug(id, job.kind === 'ENHANCEMENT' ? 'preview.saved' : 'draft.saved', { propertyId: stored.property.id, durationMs: Date.now() - startedAt });
+    importDebug(id, 'extraction.completed', {
+      strategy: result.strategy,
+      provider: result.provider,
+      firecrawlCredits: result.firecrawlCredits,
+      imageCount: result.input.images.length,
+      featureCount: result.input.features.length,
+      hasPrice: result.input.property.price.amount !== null,
+      hasLocation: Boolean(result.input.property.address.formatted || result.input.property.coordinates)
+    });
+    await db.$transaction(async (tx) => {
+      const stored =
+        job.kind === 'ENHANCEMENT'
+          ? { property: await tx.property.findFirstOrThrow({ where: { id: job.propertyId!, ownerId: job.ownerId } }) }
+          : await upsertProperty(tx, result.input, job.ownerId);
+      await tx.propertyImport.update({
+        where: { id, ownerId: job.ownerId },
+        data: {
+          status: 'READY',
+          propertyId: stored.property.id,
+          draftData: result.input as unknown as Prisma.InputJsonValue,
+          evidence: result.evidence as Prisma.InputJsonValue,
+          strategy: result.strategy,
+          provider: result.provider,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
+          completedAt: new Date(),
+          processingStartedAt: null
+        }
+      });
+      importDebug(id, job.kind === 'ENHANCEMENT' ? 'preview.saved' : 'draft.saved', {
+        propertyId: stored.property.id,
+        durationMs: Date.now() - startedAt
+      });
     });
     importDebug(id, 'worker.completed', { status: 'READY', durationMs: Date.now() - startedAt });
     return true;
   } catch (error) {
     if (error instanceof ListingValidationError) {
-      await db.propertyImport.update({ where: { id }, data: {
-        retryCount: { increment: 1 }, status: 'FAILED', processingStartedAt: null, completedAt: new Date(), errorMessage: error.message,
-      } });
+      await db.propertyImport.update({
+        where: { id },
+        data: {
+          retryCount: { increment: 1 },
+          status: 'FAILED',
+          processingStartedAt: null,
+          completedAt: new Date(),
+          errorMessage: error.message
+        }
+      });
       importDebug(id, 'worker.failed', { status: 'FAILED', terminal: true, attempt: job.retryCount + 1, error });
       return false;
     }
     const retryCount = job.retryCount + 1;
-    await db.propertyImport.update({ where: { id }, data: {
-      retryCount, status: retryCount < 3 ? 'QUEUED' : 'FAILED', processingStartedAt: null,
-      completedAt: retryCount < 3 ? null : new Date(),
-      errorMessage: retryCount < 3 ? 'No pudimos leer la publicación. Reintentando…' : 'No fue posible extraer la publicación. Comprueba la URL o usa captura manual.',
-    } });
-    importDebug(id, retryCount < 3 ? 'worker.retry.queued' : 'worker.failed', { status: retryCount < 3 ? 'QUEUED' : 'FAILED', terminal: retryCount >= 3, attempt: retryCount, error });
+    await db.propertyImport.update({
+      where: { id },
+      data: {
+        retryCount,
+        status: retryCount < 3 ? 'QUEUED' : 'FAILED',
+        processingStartedAt: null,
+        completedAt: retryCount < 3 ? null : new Date(),
+        errorMessage:
+          retryCount < 3
+            ? 'No pudimos leer la publicación. Reintentando…'
+            : 'No fue posible extraer la publicación. Comprueba la URL o usa captura manual.'
+      }
+    });
+    importDebug(id, retryCount < 3 ? 'worker.retry.queued' : 'worker.failed', {
+      status: retryCount < 3 ? 'QUEUED' : 'FAILED',
+      terminal: retryCount >= 3,
+      attempt: retryCount,
+      error
+    });
     return false;
-  } finally { clearInterval(heartbeat); }
+  } finally {
+    clearInterval(heartbeat);
+  }
 }
 
 export async function recoverStaleImports(db: PrismaClient) {
-  const stale = await db.propertyImport.findMany({ where: { status: { in: ['FETCHING', 'RENDERING', 'EXTRACTING'] }, processingStartedAt: { lt: new Date(Date.now() - 5 * 60_000) } } });
+  const stale = await db.propertyImport.findMany({
+    where: {
+      status: { in: ['FETCHING', 'RENDERING', 'EXTRACTING'] },
+      processingStartedAt: { lt: new Date(Date.now() - 5 * 60_000) }
+    }
+  });
   for (const job of stale) {
     const result = await db.propertyImport.updateMany({
       where: { id: job.id, processingStartedAt: job.processingStartedAt },
-      data: { status: job.retryCount >= 2 ? 'FAILED' : 'QUEUED', retryCount: { increment: 1 }, processingStartedAt: null, completedAt: job.retryCount >= 2 ? new Date() : null, errorMessage: 'Trabajo interrumpido; recuperado por el procesador.' },
+      data: {
+        status: job.retryCount >= 2 ? 'FAILED' : 'QUEUED',
+        retryCount: { increment: 1 },
+        processingStartedAt: null,
+        completedAt: job.retryCount >= 2 ? new Date() : null,
+        errorMessage: 'Trabajo interrumpido; recuperado por el procesador.'
+      }
     });
-    if (result.count) importDebug(job.id, 'worker.stale.recovered', { previousStatus: job.status, nextStatus: job.retryCount >= 2 ? 'FAILED' : 'QUEUED', attempt: job.retryCount + 1 });
+    if (result.count)
+      importDebug(job.id, 'worker.stale.recovered', {
+        previousStatus: job.status,
+        nextStatus: job.retryCount >= 2 ? 'FAILED' : 'QUEUED',
+        attempt: job.retryCount + 1
+      });
   }
 }

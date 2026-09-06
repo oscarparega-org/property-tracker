@@ -8,8 +8,8 @@ export type PropertyDto = {
   sourceMetadata: unknown;
   title: string;
   description: string | null;
-  propertyType: "APARTMENT" | "HOUSE" | "LAND" | "OTHER";
-  operationType: "SALE";
+  propertyType: 'APARTMENT' | 'HOUSE' | 'LAND' | 'OTHER';
+  operationType: 'SALE';
   priceAmount: number | null;
   priceCurrency: string | null;
   street: string | null;
@@ -41,27 +41,36 @@ export type PropertyDto = {
   technicalSheetQrUrl: string | null;
   agentName: string | null;
   agentAvatarUrl: string | null;
-  agentPhones: (string)[];
+  agentPhones: string[];
   agentEmail: string | null;
   officeName: string | null;
   sourceOfficeId: string | null;
-  decisionStatus: "NEW" | "CONTACTED" | "VISIT_SCHEDULED" | "VISITED" | "OFFER_MADE" | "REJECTED" | "PURCHASED";
+  decisionStatus: 'NEW' | 'CONTACTED' | 'VISIT_SCHEDULED' | 'VISITED' | 'OFFER_MADE' | 'REJECTED' | 'PURCHASED';
   isFavorite: boolean;
   rating: number | null;
   notes: string | null;
   visitAt: string | null;
   rejectionReason: string | null;
   archivedAt: string | null;
-  publicationStatus: "DRAFT" | "PUBLISHED";
+  publicationStatus: 'DRAFT' | 'PUBLISHED';
   createdAt: string;
   updatedAt: string;
-  images: ({ id: string; propertyId: string; url: string; alt: string | null; sortOrder: number })[];
-  features: ({ id: string; propertyId: string; category: "AREA" | "EQUIPMENT" | "OTHER"; name: string })[];
+  images: { id: string; propertyId: string; url: string; alt: string | null; sortOrder: number }[];
+  features: { id: string; propertyId: string; category: 'AREA' | 'EQUIPMENT' | 'OTHER'; name: string }[];
 };
-export type ImportStatus = "QUEUED" | "FETCHING" | "RENDERING" | "EXTRACTING" | "READY" | "FAILED";
-export type ImportKind = "STANDARD" | "ENHANCEMENT";
-export type ImportJobDto = { id: string; kind: ImportKind; status: ImportStatus; propertyId: string | null; errorMessage: string | null; retryCount: number };
-export type ImportStartDto = { existing: true; propertyId: string; publicationStatus: "DRAFT" | "PUBLISHED" } | { importId: string; status: ImportStatus };
+export type ImportStatus = 'QUEUED' | 'FETCHING' | 'RENDERING' | 'EXTRACTING' | 'READY' | 'FAILED';
+export type ImportKind = 'STANDARD' | 'ENHANCEMENT';
+export type ImportJobDto = {
+  id: string;
+  kind: ImportKind;
+  status: ImportStatus;
+  propertyId: string | null;
+  errorMessage: string | null;
+  retryCount: number;
+};
+export type ImportStartDto =
+  | { existing: true; propertyId: string; publicationStatus: 'DRAFT' | 'PUBLISHED' }
+  | { importId: string; status: ImportStatus };
 
 export type EnhancementCapabilityDto = { available: boolean; reason: string | null };
 export type EnhancementChangeDto = { field: string; label: string; current: string | null; proposed: string };
@@ -70,5 +79,5 @@ export type EnhancementPreviewDto = {
   propertyId: string;
   changes: EnhancementChangeDto[];
   addedImages: string[];
-  addedFeatures: { category: "AREA" | "EQUIPMENT" | "OTHER"; name: string }[];
+  addedFeatures: { category: 'AREA' | 'EQUIPMENT' | 'OTHER'; name: string }[];
 };

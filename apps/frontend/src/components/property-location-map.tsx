@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import * as maplibregl from "maplibre-gl";
-import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import { useEffect, useRef } from 'react';
+import * as maplibregl from 'maplibre-gl';
+import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 
-maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 
 export function PropertyLocationMap({
   latitude,
   longitude,
-  title,
+  title
 }: {
   latitude: number;
   longitude: number;
@@ -28,33 +28,29 @@ export function PropertyLocationMap({
         version: 8,
         sources: {
           osm: {
-            type: "raster",
-            tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
             maxzoom: 19,
-            attribution:
-              '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          },
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }
         },
-        layers: [{ id: "osm", type: "raster", source: "osm" }],
+        layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
       },
       center: [longitude, latitude],
       zoom: 15,
-      attributionControl: { compact: true },
+      attributionControl: { compact: true }
     });
 
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      "bottom-right",
-    );
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
-    const markerElement = document.createElement("div");
-    markerElement.className = "detail-map-pin";
-    markerElement.setAttribute("role", "img");
-    markerElement.setAttribute("aria-label", `Ubicación de ${title}`);
+    const markerElement = document.createElement('div');
+    markerElement.className = 'detail-map-pin';
+    markerElement.setAttribute('role', 'img');
+    markerElement.setAttribute('aria-label', `Ubicación de ${title}`);
     markerRef.current = new maplibregl.Marker({
       element: markerElement,
-      anchor: "center",
+      anchor: 'center'
     })
       .setLngLat([longitude, latitude])
       .addTo(map);

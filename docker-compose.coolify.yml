@@ -9,7 +9,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -19,14 +19,14 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    restart: "no"
+    restart: 'no'
     exclude_from_hc: true
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/app
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command: ['npx', 'prisma', 'migrate', 'deploy']
 
   backend:
     build:
@@ -48,9 +48,15 @@ services:
       PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:?}
       OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
     expose:
-      - "3000"
+      - '3000'
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
       interval: 15s
       timeout: 5s
       retries: 8
@@ -60,7 +66,7 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    command: ["node", "dist/import-worker.js"]
+    command: ['node', 'dist/import-worker.js']
     restart: unless-stopped
     stop_grace_period: 4m
     depends_on:
@@ -74,7 +80,13 @@ services:
       FIRECRAWL_CREDIT_LIMIT_MONTHLY: ${FIRECRAWL_CREDIT_LIMIT_MONTHLY:-500}
       OPENAI_IMPORT_LIMIT_MONTHLY: ${OPENAI_IMPORT_LIMIT_MONTHLY:-100}
     healthcheck:
-      test: ["CMD", "node", "-e", "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/house-tracker-worker-heartbeat','utf8'))>60000)process.exit(1)"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/house-tracker-worker-heartbeat','utf8'))>60000)process.exit(1)"
+        ]
       interval: 15s
       timeout: 5s
       retries: 4
@@ -96,9 +108,15 @@ services:
       NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL:?}
       NEXT_PUBLIC_APP_NAME: ${APP_NAME:?}
     expose:
-      - "3000"
+      - '3000'
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+        ]
       interval: 15s
       timeout: 5s
       retries: 8

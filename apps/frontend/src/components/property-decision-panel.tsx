@@ -1,17 +1,17 @@
-"use client";
-import { ActionForm } from "@/components/action-form";
+'use client';
+import { ActionForm } from '@/components/action-form';
 import { localDateInput } from '@/lib/date-input';
-import { saveDecisionAction } from "@/lib/property-actions";
-import type { PropertyDto } from "@template/shared";
+import { saveDecisionAction } from '@/lib/property-actions';
+import type { PropertyDto } from '@template/shared';
 
 const statuses = [
-  ["NEW", "Nueva"],
-  ["CONTACTED", "Contactada"],
-  ["VISIT_SCHEDULED", "Visita agendada"],
-  ["VISITED", "Visitada"],
-  ["OFFER_MADE", "Oferta enviada"],
-  ["REJECTED", "Descartada"],
-  ["PURCHASED", "Comprada"],
+  ['NEW', 'Nueva'],
+  ['CONTACTED', 'Contactada'],
+  ['VISIT_SCHEDULED', 'Visita agendada'],
+  ['VISITED', 'Visitada'],
+  ['OFFER_MADE', 'Oferta enviada'],
+  ['REJECTED', 'Descartada'],
+  ['PURCHASED', 'Comprada']
 ] as const;
 
 export function PropertyDecisionPanel({ property }: { property: PropertyDto }) {
@@ -27,14 +27,22 @@ export function PropertyDecisionPanel({ property }: { property: PropertyDto }) {
         <label>
           <span>Estado</span>
           <select name="decisionStatus" defaultValue={property.decisionStatus}>
-            {statuses.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+            {statuses.map(([value, label]) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </label>
         <label>
           <span>Calificación</span>
-          <select name="rating" defaultValue={property.rating ?? ""}>
+          <select name="rating" defaultValue={property.rating ?? ''}>
             <option value="">Sin calificar</option>
-            {[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{"★".repeat(value)} {value}/5</option>)}
+            {[1, 2, 3, 4, 5].map((value) => (
+              <option value={value} key={value}>
+                {'★'.repeat(value)} {value}/5
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -43,11 +51,21 @@ export function PropertyDecisionPanel({ property }: { property: PropertyDto }) {
         </label>
         <label>
           <span>Mis notas</span>
-          <textarea name="notes" rows={7} defaultValue={property.notes ?? ""} placeholder="Impresiones, dudas, costos por confirmar…" />
+          <textarea
+            name="notes"
+            rows={7}
+            defaultValue={property.notes ?? ''}
+            placeholder="Impresiones, dudas, costos por confirmar…"
+          />
         </label>
         <label>
           <span>Razón para descartar</span>
-          <textarea name="rejectionReason" rows={3} defaultValue={property.rejectionReason ?? ""} placeholder="Opcional" />
+          <textarea
+            name="rejectionReason"
+            rows={3}
+            defaultValue={property.rejectionReason ?? ''}
+            placeholder="Opcional"
+          />
         </label>
         <label className="decision-check">
           <input
@@ -62,7 +80,9 @@ export function PropertyDecisionPanel({ property }: { property: PropertyDto }) {
           <input name="archived" type="checkbox" defaultChecked={Boolean(property.archivedAt)} />
           <span>Archivar propiedad</span>
         </label>
-        <button type="submit" className="decision-save">Guardar mi decisión</button>
+        <button type="submit" className="decision-save">
+          Guardar mi decisión
+        </button>
       </ActionForm>
     </aside>
   );

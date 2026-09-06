@@ -1,8 +1,10 @@
 import { apiUrl } from './api';
 export async function requestApi<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, {
-    ...options, credentials: 'include', cache: 'no-store',
-    headers: { ...(typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : {}), ...options.headers },
+    ...options,
+    credentials: 'include',
+    cache: 'no-store',
+    headers: { ...(typeof options.body === 'string' ? { 'Content-Type': 'application/json' } : {}), ...options.headers }
   });
   if (response.status === 401) {
     window.location.assign('/sign-in');

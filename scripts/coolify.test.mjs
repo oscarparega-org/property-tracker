@@ -26,7 +26,10 @@ test('derives deterministic development resource names', () => {
 });
 
 test('rejects repository names that cannot be DNS labels', () => {
-  assert.throws(() => buildDeploymentConfig({ ...environment, GITHUB_REPOSITORY: 'example/house_tracking' }), /DNS label/);
+  assert.throws(
+    () => buildDeploymentConfig({ ...environment, GITHUB_REPOSITORY: 'example/house_tracking' }),
+    /DNS label/
+  );
 });
 
 test('rejects repository names that make the API DNS label too long', () => {
@@ -44,7 +47,10 @@ test('rejects a provider credential key that is not canonical base64 encoding at
 test('does not leak token values in HTTP errors', async () => {
   const config = buildDeploymentConfig(environment);
   const client = new CoolifyClient(config, async () => new Response('secret response', { status: 401 }));
-  await assert.rejects(() => client.request('/projects'), (error) => !error.message.includes('write-token') && !error.message.includes('secret response'));
+  await assert.rejects(
+    () => client.request('/projects'),
+    (error) => !error.message.includes('write-token') && !error.message.includes('secret response')
+  );
 });
 
 test('reuses existing resources during reconciliation', async () => {
@@ -54,13 +60,18 @@ test('reuses existing resources during reconciliation', async () => {
     ['/projects', [{ uuid: 'project-1', name: config.projectName, description: config.projectDescription }]],
     ['/projects/project-1', { environments: [{ uuid: 'env-1', name: 'dev' }] }],
     ['/servers/server-1/destinations', [{ uuid: 'destination-1', network: config.networkName }]],
-    [`/applications?tag=${config.resourceTag}`, [{ uuid: 'app-1', git_repository: `https://github.com/${config.repository}` }]]
+    [
+      `/applications?tag=${config.resourceTag}`,
+      [{ uuid: 'app-1', git_repository: `https://github.com/${config.repository}` }]
+    ]
   ]);
-  const client = { request: async (path, options = {}) => {
-    calls.push([path, options.method || 'GET', options.body]);
-    if (path === '/applications/app-1' || path === '/applications/app-1/envs/bulk') return { uuid: 'app-1' };
-    return responses.get(path);
-  } };
+  const client = {
+    request: async (path, options = {}) => {
+      calls.push([path, options.method || 'GET', options.body]);
+      if (path === '/applications/app-1' || path === '/applications/app-1/envs/bulk') return { uuid: 'app-1' };
+      return responses.get(path);
+    }
+  };
   const result = await reconcile(client, config);
   assert.equal(result.application.uuid, 'app-1');
   assert.equal(calls.filter(([, method]) => method === 'POST').length, 0);
@@ -76,7 +87,9 @@ test('reuses existing resources during reconciliation', async () => {
     is_runtime: true,
     is_preview: false
   });
-  const providerCredentialEncryptionKey = environmentUpdate[2].data.find(({ key }) => key === 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY');
+  const providerCredentialEncryptionKey = environmentUpdate[2].data.find(
+    ({ key }) => key === 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY'
+  );
   assert.deepEqual(providerCredentialEncryptionKey, {
     key: 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY',
     value: config.providerCredentialEncryptionKey,
@@ -90,13 +103,15 @@ test('reuses existing resources during reconciliation', async () => {
 test('accepts the direct deployment response used by older Coolify versions', async () => {
   const config = buildDeploymentConfig(environment);
   let deployOptions;
-  const client = { request: async (path, options) => {
-    if (path === '/deploy') {
-      deployOptions = options;
-      return { deployment_uuid: 'deployment-1' };
+  const client = {
+    request: async (path, options) => {
+      if (path === '/deploy') {
+        deployOptions = options;
+        return { deployment_uuid: 'deployment-1' };
+      }
+      return { status: 'finished' };
     }
-    return { status: 'finished' };
-  } };
+  };
   const result = await deployAndWait(client, config, { uuid: 'app-1' }, { pollMs: 0, timeoutMs: 100 });
   assert.equal(result.deploymentUuid, 'deployment-1');
   assert.deepEqual(deployOptions.body, { uuid: 'app-1', force: false });

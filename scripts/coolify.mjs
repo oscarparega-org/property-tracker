@@ -12,12 +12,23 @@ export function buildDeploymentConfig(source = process.env) {
   const repository = required('GITHUB_REPOSITORY');
   const [owner, repo, extra] = repository.split('/');
   if (!owner || !repo || extra) throw new Error('GITHUB_REPOSITORY must use owner/repository format');
-  if (!DNS_LABEL.test(repo)) throw new Error(`Repository name "${repo}" must be a lowercase DNS label (letters, digits, hyphens; maximum 63 characters)`);
-  if (repo.length > 55) throw new Error(`Repository name "${repo}" is too long; 55 characters is the maximum because deployment domains add the -api-dev suffix`);
+  if (!DNS_LABEL.test(repo))
+    throw new Error(
+      `Repository name "${repo}" must be a lowercase DNS label (letters, digits, hyphens; maximum 63 characters)`
+    );
+  if (repo.length > 55)
+    throw new Error(
+      `Repository name "${repo}" is too long; 55 characters is the maximum because deployment domains add the -api-dev suffix`
+    );
   const repositoryId = required('GITHUB_REPOSITORY_ID');
   if (!/^\d+$/.test(repositoryId)) throw new Error('GITHUB_REPOSITORY_ID must be numeric');
-  const baseDomain = required('DEPLOY_BASE_DOMAIN').replace(/^https?:\/\//, '').replace(/^\*\./, '').replace(/\/$/, '').toLowerCase();
-  if (!baseDomain.includes('.') || baseDomain.split('.').some((label) => !DNS_LABEL.test(label))) throw new Error('DEPLOY_BASE_DOMAIN must be a valid domain without a protocol or wildcard prefix');
+  const baseDomain = required('DEPLOY_BASE_DOMAIN')
+    .replace(/^https?:\/\//, '')
+    .replace(/^\*\./, '')
+    .replace(/\/$/, '')
+    .toLowerCase();
+  if (!baseDomain.includes('.') || baseDomain.split('.').some((label) => !DNS_LABEL.test(label)))
+    throw new Error('DEPLOY_BASE_DOMAIN must be a valid domain without a protocol or wildcard prefix');
   const apiUrl = required('COOLIFY_API_URL').replace(/\/$/, '');
   if (!/^https:\/\//.test(apiUrl)) throw new Error('COOLIFY_API_URL must use HTTPS');
   const providerCredentialEncryptionKey = required('PROVIDER_CREDENTIAL_ENCRYPTION_KEY');
@@ -27,8 +38,10 @@ export function buildDeploymentConfig(source = process.env) {
   } catch {
     throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must be valid base64');
   }
-  if (decodedProviderCredentialEncryptionKey.length < 32
-    || decodedProviderCredentialEncryptionKey.toString('base64') !== providerCredentialEncryptionKey) {
+  if (
+    decodedProviderCredentialEncryptionKey.length < 32 ||
+    decodedProviderCredentialEncryptionKey.toString('base64') !== providerCredentialEncryptionKey
+  ) {
     throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must be canonical base64 encoding at least 32 bytes');
   }
 
@@ -86,16 +99,29 @@ function exactlyOne(items, predicate, kind) {
 export async function reconcile(client, config) {
   const projects = await client.request('/projects');
   let project = exactlyOne(projects, (item) => item.name === config.projectName, 'project');
-  if (project && project.description !== config.projectDescription) throw new Error(`Coolify project "${config.projectName}" exists but is not managed by repository ${config.repositoryId}`);
+  if (project && project.description !== config.projectDescription)
+    throw new Error(
+      `Coolify project "${config.projectName}" exists but is not managed by repository ${config.repositoryId}`
+    );
   if (!project) {
-    const created = await client.request('/projects', { method: 'POST', body: { name: config.projectName, description: config.projectDescription } });
+    const created = await client.request('/projects', {
+      method: 'POST',
+      body: { name: config.projectName, description: config.projectDescription }
+    });
     project = { uuid: created.uuid, name: config.projectName, description: config.projectDescription };
   }
 
   const projectDetails = await client.request(`/projects/${project.uuid}`);
-  let environment = exactlyOne(projectDetails.environments || [], (item) => item.name === config.environmentName, 'environment');
+  let environment = exactlyOne(
+    projectDetails.environments || [],
+    (item) => item.name === config.environmentName,
+    'environment'
+  );
   if (!environment) {
-    const created = await client.request(`/projects/${project.uuid}/environments`, { method: 'POST', body: { name: config.environmentName } });
+    const created = await client.request(`/projects/${project.uuid}/environments`, {
+      method: 'POST',
+      body: { name: config.environmentName }
+    });
     environment = { uuid: created.uuid, name: config.environmentName };
   }
 
@@ -103,12 +129,17 @@ export async function reconcile(client, config) {
   let destination = exactlyOne(destinations, (item) => item.network === config.networkName, 'destination');
   if (!destination) {
     destination = await client.request(`/servers/${config.serverUuid}/destinations`, {
-      method: 'POST', body: { name: config.destinationName, network: config.networkName }
+      method: 'POST',
+      body: { name: config.destinationName, network: config.networkName }
     });
   }
 
   const applications = await client.request(`/applications?tag=${encodeURIComponent(config.resourceTag)}`);
-  let application = exactlyOne(applications, (item) => item.git_repository?.replace(/\.git$/, '').endsWith(config.repository), 'application');
+  let application = exactlyOne(
+    applications,
+    (item) => item.git_repository?.replace(/\.git$/, '').endsWith(config.repository),
+    'application'
+  );
   const applicationSettings = {
     git_commit_sha: config.sha,
     is_auto_deploy_enabled: false,
@@ -152,23 +183,25 @@ export async function reconcile(client, config) {
 
   await client.request(`/applications/${application.uuid}/envs/bulk`, {
     method: 'PATCH',
-    body: { data: [
-      // Coolify resolves every Docker Compose interpolation before the image
-      // build, including values that are only consumed by runtime services.
-      { key: 'FRONTEND_URL', value: config.frontendUrl, is_buildtime: true, is_runtime: true, is_preview: false },
-      { key: 'PUBLIC_API_URL', value: config.apiPublicUrl, is_buildtime: true, is_runtime: true, is_preview: false },
-      { key: 'APP_NAME', value: config.displayName, is_buildtime: true, is_runtime: true, is_preview: false },
-      {
-        key: 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY',
-        value: config.providerCredentialEncryptionKey,
-        // Compose interpolates service environment entries during its build
-        // phase, even though the application only consumes this at runtime.
-        is_buildtime: true,
-        is_runtime: true,
-        is_preview: false,
-        is_literal: true
-      }
-    ] }
+    body: {
+      data: [
+        // Coolify resolves every Docker Compose interpolation before the image
+        // build, including values that are only consumed by runtime services.
+        { key: 'FRONTEND_URL', value: config.frontendUrl, is_buildtime: true, is_runtime: true, is_preview: false },
+        { key: 'PUBLIC_API_URL', value: config.apiPublicUrl, is_buildtime: true, is_runtime: true, is_preview: false },
+        { key: 'APP_NAME', value: config.displayName, is_buildtime: true, is_runtime: true, is_preview: false },
+        {
+          key: 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY',
+          value: config.providerCredentialEncryptionKey,
+          // Compose interpolates service environment entries during its build
+          // phase, even though the application only consumes this at runtime.
+          is_buildtime: true,
+          is_runtime: true,
+          is_preview: false,
+          is_literal: true
+        }
+      ]
+    }
   });
   return { project, environment, destination, application };
 }
@@ -183,17 +216,19 @@ export async function deployAndWait(client, config, application, options = {}) {
   });
   // Current Coolify returns { deployments: [...] }; older installations have
   // returned either the deployment object directly or wrapped in an array.
-  const deploymentUuid = queued?.deployments?.[0]?.deployment_uuid
-    || queued?.deployment?.deployment_uuid
-    || queued?.deployment_uuid
-    || (Array.isArray(queued) ? queued[0]?.deployment_uuid : undefined);
+  const deploymentUuid =
+    queued?.deployments?.[0]?.deployment_uuid ||
+    queued?.deployment?.deployment_uuid ||
+    queued?.deployment_uuid ||
+    (Array.isArray(queued) ? queued[0]?.deployment_uuid : undefined);
   if (!deploymentUuid) throw new Error('Coolify did not return a deployment UUID');
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const deployment = await client.request(`/deployments/${deploymentUuid}`);
     const status = String(deployment.status || '').toLowerCase();
     if (['finished', 'success', 'succeeded'].includes(status)) return { deploymentUuid, deployment };
-    if (['failed', 'cancelled', 'canceled', 'error'].some((value) => status.includes(value))) throw new Error(`Coolify deployment ${deploymentUuid} ended with status ${status}`);
+    if (['failed', 'cancelled', 'canceled', 'error'].some((value) => status.includes(value)))
+      throw new Error(`Coolify deployment ${deploymentUuid} ended with status ${status}`);
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
   throw new Error(`Coolify deployment ${deploymentUuid} timed out; application ${application.uuid} was retained`);
@@ -206,7 +241,9 @@ async function smokeTest(url, label) {
       const response = await fetch(url, { redirect: 'follow' });
       lastStatus = `HTTP ${response.status}`;
       if (response.ok) return;
-    } catch { lastStatus = 'network error'; }
+    } catch {
+      lastStatus = 'network error';
+    }
     await new Promise((resolve) => setTimeout(resolve, 5_000));
   }
   throw new Error(`${label} smoke test failed at ${url}: ${lastStatus}`);
@@ -221,7 +258,8 @@ export async function main() {
   await smokeTest(`${config.apiPublicUrl}/health`, 'API');
   await smokeTest(config.frontendUrl, 'Frontend');
   const summary = [
-    '## Development deployment', '',
+    '## Development deployment',
+    '',
     `- Frontend: ${config.frontendUrl}`,
     `- API: ${config.apiPublicUrl}`,
     `- Commit: \`${config.sha}\``,
@@ -232,5 +270,8 @@ export async function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().catch((error) => { console.error(error instanceof Error ? error.message : 'Deployment failed'); process.exitCode = 1; });
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : 'Deployment failed');
+    process.exitCode = 1;
+  });
 }
