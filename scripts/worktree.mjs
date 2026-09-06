@@ -12,7 +12,7 @@ import {
   unlinkSync,
   writeFileSync
 } from 'node:fs';
-import { createServer } from 'node:net';
+import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -160,6 +160,22 @@ function isPortFree(port) {
     server.unref();
     server.once('error', () => result(false));
     server.listen({ host: '127.0.0.1', port, exclusive: true }, () => server.close(() => result(true)));
+  });
+}
+
+function isReachable(host, port) {
+  return new Promise((result) => {
+    const socket = createConnection({ host, port });
+    let settled = false;
+    const finish = (reachable) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      result(reachable);
+    };
+    socket.setTimeout(1_000, () => finish(false));
+    socket.once('connect', () => finish(true));
+    socket.once('error', () => finish(false));
   });
 }
 
@@ -359,13 +375,13 @@ async function develop(root) {
   console.log('[worktree] starting PostgreSQL');
   compose(root, config, ['up', '-d', '--wait', '--wait-timeout', '60', 'postgres']);
   console.log('[worktree] building shared package');
-  command('npm', ['run', 'build', '--workspace=@template/shared'], { cwd: root, env });
+  command('npm', ['run', 'build', '--workspace=./packages/shared'], { cwd: root, env });
   console.log('[worktree] generating Prisma client');
   command('npx', ['prisma', 'generate', '--schema', 'apps/backend/prisma/schema.prisma'], { cwd: root, env });
   console.log('[worktree] deploying Prisma migrations');
   command('npx', ['prisma', 'migrate', 'deploy', '--schema', 'apps/backend/prisma/schema.prisma'], { cwd: root, env });
   if (env.DEV_SEED_ENABLED !== 'false') seed(root, config);
-  command('npm', ['run', 'predev', '--workspace=template-frontend'], { cwd: root, env });
+  command('npm', ['run', 'predev', '--workspace=./apps/frontend'], { cwd: root, env });
   printConfig(config, 'Development stack ready');
 
   const children = [
@@ -393,6 +409,7 @@ async function develop(root) {
   ];
 
   let stopping = false;
+  void openOrcaBrowser(root, config, () => stopping);
   const stopAll = (signal) => {
     if (stopping) return;
     stopping = true;
@@ -424,6 +441,29 @@ async function develop(root) {
     }
   });
   process.exitCode = exitCode;
+}
+
+async function openOrcaBrowser(root, config, shouldStop) {
+  if (!process.env.ORCA_WORKTREE_ID) return;
+
+  console.log(`[worktree] waiting to open ${config.FRONTEND_URL} in the Orca browser`);
+  for (let attempt = 0; attempt < 240 && !shouldStop(); attempt += 1) {
+    if (await isReachable('127.0.0.1', Number(config.WEB_PORT))) {
+      try {
+        command(resolveOrcaCommand(), ['tab', 'create', '--url', config.FRONTEND_URL, '--json'], {
+          cwd: root,
+          capture: true
+        });
+        console.log('[worktree] opened frontend in the Orca browser');
+      } catch (error) {
+        console.warn(`[worktree] could not open the Orca browser: ${error.message}`);
+      }
+      return;
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 500));
+  }
+
+  if (!shouldStop()) console.warn('[worktree] frontend did not become ready for the Orca browser within 2 minutes');
 }
 
 function seed(root, config = readConfig(root)) {
