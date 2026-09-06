@@ -14,7 +14,7 @@
     "lint": "turbo lint --cache-dir=.turbo/cache",
     "format": "prettier . --write --ignore-unknown",
     "format:check": "prettier . --check --ignore-unknown",
-    "test": "turbo test --cache-dir=.turbo/cache && node --test scripts/coolify.test.mjs",
+    "test": "turbo test --cache-dir=.turbo/cache && node --test scripts/*.test.mjs",
     "precommit": "npm run format:check && npm run check && npm run lint && npm test && npm run build",
     "test:e2e": "npm run test:e2e --workspace=house-tracker-backend",
     "test:browser": "playwright test",
@@ -23,7 +23,13 @@
     "db:migrate": "turbo db:migrate --cache-dir=.turbo/cache",
     "deploy:coolify": "node scripts/coolify.mjs",
     "compose:up": "docker compose up --build",
-    "compose:down": "docker compose down"
+    "compose:down": "docker compose down",
+    "wt:init": "node scripts/worktree.mjs init",
+    "wt:dev": "node scripts/worktree.mjs dev",
+    "wt:seed": "node scripts/worktree.mjs seed",
+    "wt:down": "node scripts/worktree.mjs down",
+    "wt:status": "node scripts/worktree.mjs status",
+    "wt:remove": "node scripts/worktree.mjs remove"
   },
   "packageManager": "npm@10.9.3",
   "overrides": {

@@ -16,6 +16,7 @@ const contentSecurityPolicy = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   output: 'standalone',
   outputFileTracingRoot: new URL('../../', import.meta.url).pathname,
   async headers() {
