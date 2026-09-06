@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   cleanupTarget,
   composeArguments,
@@ -9,8 +10,11 @@ import {
   serializeEnv,
   shortHash,
   slugify,
-  validateWorktreeConfig
+  validateWorktreeConfig,
+  workspacePackageName
 } from './worktree.mjs';
+
+const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
 function validConfig(root) {
   const identity = deriveWorktreeIdentity(root);
@@ -111,4 +115,9 @@ test('port selection rejects ports already in use', async () => {
   const first = await selectPortSlot('another identity', new Set(), async () => true);
   const second = await selectPortSlot('another identity', new Set(), async (port) => port !== first.api);
   assert.notEqual(second.slot, first.slot);
+});
+
+test('development commands resolve workspace names from their package manifests', () => {
+  assert.equal(workspacePackageName(repositoryRoot, 'packages/shared'), '@house-tracker/shared');
+  assert.equal(workspacePackageName(repositoryRoot, 'apps/frontend'), 'house-tracker-frontend');
 });

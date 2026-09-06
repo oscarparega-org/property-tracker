@@ -24,6 +24,15 @@ const worktreeConfigVersion = '1';
 const slotCount = 200;
 const portBases = { api: 3100, web: 5200, postgres: 55432 };
 
+export function workspacePackageName(root, workspacePath) {
+  const manifestPath = join(root, workspacePath, 'package.json');
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (typeof manifest.name !== 'string' || !manifest.name.trim()) {
+    throw new Error(`Workspace manifest does not define a package name: ${manifestPath}`);
+  }
+  return manifest.name;
+}
+
 export function slugify(value) {
   const slug = value
     .toLowerCase()
@@ -348,6 +357,8 @@ function stopChild(child, signal = 'SIGTERM') {
 async function develop(root) {
   const config = await initialize(root);
   const env = runtimeEnvironment(config);
+  const sharedWorkspace = workspacePackageName(root, 'packages/shared');
+  const frontendWorkspace = workspacePackageName(root, 'apps/frontend');
   const applicationPorts = [Number(config.API_PORT), Number(config.WEB_PORT)];
   const available = await Promise.all(applicationPorts.map((port) => isPortFree(port)));
   if (!available.every(Boolean)) {
@@ -359,13 +370,13 @@ async function develop(root) {
   console.log('[worktree] starting PostgreSQL');
   compose(root, config, ['up', '-d', '--wait', '--wait-timeout', '60', 'postgres']);
   console.log('[worktree] building shared package');
-  command('npm', ['run', 'build', '--workspace=@template/shared'], { cwd: root, env });
+  command('npm', ['run', 'build', `--workspace=${sharedWorkspace}`], { cwd: root, env });
   console.log('[worktree] generating Prisma client');
   command('npx', ['prisma', 'generate', '--schema', 'apps/backend/prisma/schema.prisma'], { cwd: root, env });
   console.log('[worktree] deploying Prisma migrations');
   command('npx', ['prisma', 'migrate', 'deploy', '--schema', 'apps/backend/prisma/schema.prisma'], { cwd: root, env });
   if (env.DEV_SEED_ENABLED !== 'false') seed(root, config);
-  command('npm', ['run', 'predev', '--workspace=template-frontend'], { cwd: root, env });
+  command('npm', ['run', 'predev', `--workspace=${frontendWorkspace}`], { cwd: root, env });
   printConfig(config, 'Development stack ready');
 
   const children = [

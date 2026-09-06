@@ -4,12 +4,15 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
+import { MaterialIcon } from '@/components/material-icon';
+import { mainContentId } from '@/components/skip-link';
 
 export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const isSignUp = mode === 'sign-up';
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'House Tracker';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,57 +42,76 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   }
 
   return (
-    <form
-      className="mx-auto mt-16 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
-      onSubmit={submit}
-    >
-      <h1 className="text-3xl font-semibold tracking-tight">
-        {isSignUp ? 'Crear una cuenta' : 'Bienvenido a House Tracker'}
-      </h1>
-      <p className="mt-2 text-sm text-slate-600">
-        {isSignUp ? 'Tu colección privada de propiedades empieza aquí.' : 'Inicia sesión con tu correo y contraseña.'}
-      </p>
-      {isSignUp ? <Field autoComplete="name" label="Nombre" name="name" type="text" /> : null}
-      <Field autoComplete="email" label="Correo" name="email" type="email" />
-      <Field
-        autoComplete={isSignUp ? 'new-password' : 'current-password'}
-        label="Contraseña"
-        minLength={8}
-        name="password"
-        type="password"
-      />
-      {error ? (
-        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <button
-        className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
-        disabled={pending}
-        type="submit"
-      >
-        {pending ? 'Espera un momento…' : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
-      </button>
-      <p className="mt-5 text-center text-sm text-slate-600">
-        {isSignUp ? '¿Ya tienes cuenta?' : '¿Necesitas una cuenta?'}{' '}
-        <Link className="font-semibold text-slate-950 underline" href={isSignUp ? '/sign-in' : '/sign-up'}>
-          {isSignUp ? 'Iniciar sesión' : 'Crear cuenta'}
-        </Link>
-      </p>
-    </form>
+    <main className="auth-page" id={mainContentId} tabIndex={-1}>
+      <section className="auth-shell" aria-label={isSignUp ? 'Crear una cuenta' : 'Iniciar sesión'}>
+        <aside className="auth-story">
+          <Link href="/" className="auth-brand" aria-label={appName}>
+            <span className="brand-mark" aria-hidden="true">
+              <MaterialIcon name="home" />
+            </span>
+            <strong>{appName}</strong>
+          </Link>
+          <div className="auth-story-copy">
+            <span className="auth-kicker">Tu radar inmobiliario</span>
+            <p className="auth-story-title">Decide con calma. Guarda cada señal.</p>
+            <p className="auth-story-description">
+              Reúne propiedades, compara lo importante y lleva cada opción desde el primer hallazgo hasta la decisión
+              final.
+            </p>
+          </div>
+          <div className="auth-stages" aria-hidden="true">
+            <span className="is-complete">Encontrada</span>
+            <span className="is-current">Por visitar</span>
+            <span>Decisión</span>
+          </div>
+        </aside>
+
+        <form className="auth-form" onSubmit={submit}>
+          <div className="auth-heading">
+            <span className="eyebrow">Acceso privado</span>
+            <h1>{isSignUp ? 'Crear una cuenta' : 'Qué gusto verte'}</h1>
+            <p>
+              {isSignUp
+                ? 'Empieza una colección privada para organizar tu búsqueda.'
+                : 'Continúa donde dejaste tu búsqueda de propiedades.'}
+            </p>
+          </div>
+          <div className="auth-fields">
+            {isSignUp ? <Field autoComplete="name" label="Nombre" name="name" type="text" /> : null}
+            <Field autoComplete="email" label="Correo" name="email" type="email" />
+            <Field
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              label="Contraseña"
+              minLength={8}
+              name="password"
+              type="password"
+            />
+          </div>
+          {error ? (
+            <p className="auth-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button className="auth-submit" disabled={pending} type="submit">
+            <span>{pending ? 'Espera un momento…' : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}</span>
+            {!pending ? <MaterialIcon name="arrowForward" /> : null}
+          </button>
+          <p className="auth-switch">
+            {isSignUp ? '¿Ya tienes cuenta?' : '¿Primera vez aquí?'}{' '}
+            <Link href={isSignUp ? '/sign-in' : '/sign-up'}>{isSignUp ? 'Iniciar sesión' : 'Crear cuenta'}</Link>
+          </p>
+        </form>
+      </section>
+    </main>
   );
 }
 
 type FieldProps = { label: string; name: string; type: string; autoComplete: string; minLength?: number };
 function Field({ label, ...props }: FieldProps) {
   return (
-    <label className="mt-5 block text-sm font-medium text-slate-700">
-      {label}
-      <input
-        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        required
-        {...props}
-      />
+    <label className="auth-field">
+      <span>{label}</span>
+      <input required {...props} />
     </label>
   );
 }
