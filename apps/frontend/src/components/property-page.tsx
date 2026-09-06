@@ -7,13 +7,24 @@ import { PropertyDetail } from './property-detail';
 import { ReviewPropertyEditor } from './review-property-editor';
 import { DraftList } from './draft-list';
 
-export function PropertyPage({ id, mode = 'list' }: { id?: string; mode?: 'list' | 'detail' | 'review' | 'drafts' }) {
+export function PropertyPage({
+  id,
+  searchId,
+  mode = 'list',
+  initialView = 'list'
+}: {
+  id?: string;
+  searchId: string;
+  mode?: 'list' | 'detail' | 'review' | 'drafts';
+  initialView?: 'board' | 'list';
+}) {
   const [data, setData] = useState<PropertyDto[] | null>(null);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
+  const base = `/api/searches/${encodeURIComponent(searchId)}/properties`;
   const path = id
-    ? `/api/properties/${encodeURIComponent(id)}`
-    : `/api/properties?publicationStatus=${mode === 'drafts' ? 'DRAFT' : 'PUBLISHED'}`;
+    ? `${base}/${encodeURIComponent(id)}`
+    : `${base}?publicationStatus=${mode === 'drafts' ? 'DRAFT' : 'PUBLISHED'}`;
   useEffect(() => {
     const refresh = () => setRevision((value) => value + 1);
     window.addEventListener('properties-changed', refresh);
@@ -46,15 +57,15 @@ export function PropertyPage({ id, mode = 'list' }: { id?: string; mode?: 'list'
         Cargando propiedades…
       </p>
     );
-  if (mode === 'drafts') return <DraftList drafts={data} />;
+  if (mode === 'drafts') return <DraftList drafts={data} searchId={searchId} />;
   if (mode === 'detail' || mode === 'review') {
     const property = data[0];
     if (!property) return <p className="empty-state">Propiedad no encontrada.</p>;
     return mode === 'review' && property.publicationStatus === 'DRAFT' ? (
-      <ReviewPropertyEditor key={property.updatedAt} property={property} />
+      <ReviewPropertyEditor key={property.updatedAt} property={property} searchId={searchId} />
     ) : (
       <PropertyDetail key={property.updatedAt} property={property} />
     );
   }
-  return <PropertyWorkspace initialProperties={data} />;
+  return <PropertyWorkspace initialProperties={data} searchId={searchId} initialView={initialView} />;
 }

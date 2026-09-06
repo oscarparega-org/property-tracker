@@ -9,6 +9,7 @@ import type { AppVariables } from './types.js';
 import { propertyRoutes } from './property-routes.js';
 import { bodyLimit } from 'hono/body-limit';
 import { providerSettingsRoutes } from './provider-settings-routes.js';
+import { searchRoutes } from './search-routes.js';
 
 type AuthInstance = typeof defaultAuth;
 
@@ -41,6 +42,7 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
     await next();
   });
   app.route('/api', propertyRoutes(database));
+  app.route('/api', searchRoutes(database));
   app.route('/api', providerSettingsRoutes(database));
 
   app.get('/health', async (context) => {

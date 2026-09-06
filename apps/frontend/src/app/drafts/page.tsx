@@ -1,4 +1,4 @@
-import { PropertyPage } from '@/components/property-page';
+import { redirect } from 'next/navigation';
 export default function Drafts() {
-  return <PropertyPage mode="drafts" />;
+  redirect('/');
 }

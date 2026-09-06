@@ -3,8 +3,11 @@ import { useState, type FormHTMLAttributes } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PropertyDto } from '@house-tracker/shared';
 
-type Props = Omit<FormHTMLAttributes<HTMLFormElement>, 'action'> & { action: (form: FormData) => Promise<PropertyDto> };
-export function ActionForm({ action, children, ...props }: Props) {
+type Props = Omit<FormHTMLAttributes<HTMLFormElement>, 'action'> & {
+  action: (form: FormData) => Promise<PropertyDto>;
+  onSuccess?: (result: PropertyDto) => void;
+};
+export function ActionForm({ action, children, onSuccess, ...props }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -19,9 +22,12 @@ export function ActionForm({ action, children, ...props }: Props) {
         setError('');
         try {
           const result = await action(form);
+          onSuccess?.(result);
           window.dispatchEvent(new Event('properties-changed'));
-          if (form.has('publicationStatus'))
-            router.push(`/properties/${result.id}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`);
+          if (form.has('publicationStatus')) {
+            const base = result.searchId ? `/searches/${result.searchId}` : '';
+            router.push(`${base}/properties/${result.id}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`);
+          }
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : 'No fue posible guardar.');
         } finally {

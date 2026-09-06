@@ -13,7 +13,12 @@ function lines(value: string) {
   ];
 }
 
-export async function saveProperty(db: PrismaClient, ownerId: string, formData: FormData, id?: string) {
+export async function saveProperty(
+  db: PrismaClient | Prisma.TransactionClient,
+  ownerId: string,
+  formData: FormData,
+  id?: string
+) {
   const parsed = editorSchema.safeParse({ ...Object.fromEntries(formData), id: id ?? '' });
   if (!parsed.success) {
     throw new HTTPException(400, { message: parsed.error.issues[0]?.message ?? 'Datos inválidos.' });
@@ -76,15 +81,17 @@ export async function saveProperty(db: PrismaClient, ownerId: string, formData: 
     agentEmail: data.agentEmail || null,
     officeName: data.officeName,
     sourceOfficeId: data.sourceOfficeId,
-    decisionStatus: data.decisionStatus,
-    rating: data.rating,
-    notes: data.notes,
-    visitAt: data.visitAt,
-    rejectionReason: data.rejectionReason,
     publicationStatus: data.publicationStatus
   } satisfies Prisma.PropertyUpdateInput;
 
-  const include = { images: { orderBy: { sortOrder: 'asc' as const } }, features: true };
+  const include = {
+    images: { orderBy: { sortOrder: 'asc' as const } },
+    features: { orderBy: [{ category: 'asc' as const }, { name: 'asc' as const }] },
+    searches: {
+      include: { search: { select: { id: true, name: true, isPrimary: true } } },
+      orderBy: { createdAt: 'asc' as const }
+    }
+  };
   if (id) {
     return toPropertyDto(
       await db.property.update({

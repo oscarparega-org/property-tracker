@@ -1,7 +1,7 @@
 'use client';
 import { ActionForm } from '@/components/action-form';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { setDecisionStatusAction, toggleFavoriteAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
@@ -9,6 +9,7 @@ import type { PropertyDto } from '@house-tracker/shared';
 import { PropertyEditor } from '@/components/property-editor';
 import { PropertyMap } from '@/components/property-map';
 import { PropertyBoard } from '@/components/property-board';
+import { SearchContextBar } from '@/components/search-context-bar';
 
 type ViewMode = 'board' | 'split' | 'list' | 'map';
 
@@ -47,19 +48,15 @@ function Metric({ value, label }: { value: string | number | null; label: string
   );
 }
 
-function PropertyCard({
-  property,
-  selected,
-  onSelect
-}: {
-  property: PropertyDto;
-  selected: boolean;
-  onSelect: () => void;
-}) {
+function PropertyCard({ property, searchId }: { property: PropertyDto; searchId: string }) {
   const hero = property.images[0];
   return (
-    <article className={`property-card${selected ? ' is-selected' : ''}${property.archivedAt ? ' is-archived' : ''}`}>
-      <button type="button" className="card-select" onClick={onSelect}>
+    <article className={`property-card${property.archivedAt ? ' is-archived' : ''}`}>
+      <Link
+        className="card-select"
+        href={`/searches/${searchId}/properties/${property.id}`}
+        aria-label={`Ver ${property.title}`}
+      >
         <div className="card-image-wrap">
           {hero ? (
             // Listing images can come from arbitrary model-provided domains.
@@ -89,10 +86,10 @@ function PropertyCard({
             </span>
           )}
         </div>
-      </button>
+      </Link>
 
       <div className="card-actions">
-        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite)}>
+        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite, searchId)}>
           <button
             className={`favorite-button${property.isFavorite ? ' is-active' : ''}`}
             type="submit"
@@ -102,20 +99,62 @@ function PropertyCard({
           </button>
         </ActionForm>
       </div>
-      <Link
-        className="card-detail-button"
-        href={`/properties/${property.id}`}
-        aria-label={`Ver ${property.title}`}
-        title="Ver propiedad"
-      >
-        <MaterialIcon name="arrowForward" />
-      </Link>
     </article>
   );
 }
 
-export function PropertyWorkspace({ initialProperties }: { initialProperties: PropertyDto[] }) {
-  const [view, setView] = useState<ViewMode>('board');
+function FilterDialog({
+  children,
+  onClose,
+  onClear,
+  activeCount
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  onClear: () => void;
+  activeCount: number;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, []);
+  return (
+    <dialog ref={dialogRef} className="filter-sheet" aria-labelledby="filter-sheet-title" onCancel={onClose}>
+      <header>
+        <div>
+          <span>{activeCount ? `${activeCount} activos` : 'Todas las propiedades'}</span>
+          <h2 id="filter-sheet-title">Filtrar propiedades</h2>
+        </div>
+        <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar filtros">
+          <MaterialIcon name="close" />
+        </button>
+      </header>
+      <div className="filter-sheet-fields">{children}</div>
+      <footer>
+        <button className="button subtle" type="button" onClick={onClear} disabled={!activeCount}>
+          Limpiar
+        </button>
+        <button className="button primary" type="button" onClick={onClose}>
+          Ver resultados
+        </button>
+      </footer>
+    </dialog>
+  );
+}
+
+export function PropertyWorkspace({
+  initialProperties,
+  searchId,
+  initialView = 'list'
+}: {
+  initialProperties: PropertyDto[];
+  searchId: string;
+  initialView?: 'board' | 'list';
+}) {
+  const [view, setView] = useState<ViewMode>(initialView);
   const [properties, setProperties] = useState(initialProperties);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveError, setMoveError] = useState('');
@@ -130,8 +169,10 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
     initialProperties.find((item) => !item.archivedAt)?.id ?? null
   );
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => setProperties(initialProperties), [initialProperties]);
+  useEffect(() => setView(initialView), [initialView]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('es-MX');
@@ -150,6 +191,82 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
   }, [favoritesOnly, properties, maxPrice, minBedrooms, query, showArchived, status, type]);
 
   const editing = properties.find((property) => property.id === editingId) ?? null;
+  const activeFilterCount = [
+    status !== 'ALL',
+    type !== 'ALL',
+    Boolean(maxPrice),
+    Boolean(minBedrooms),
+    favoritesOnly,
+    showArchived
+  ].filter(Boolean).length;
+
+  function clearFilters() {
+    setStatus('ALL');
+    setType('ALL');
+    setMaxPrice('');
+    setMinBedrooms('');
+    setFavoritesOnly(false);
+    setShowArchived(false);
+  }
+
+  const filterControls = (
+    <>
+      <label>
+        <span>Estado</span>
+        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Estado de decisión">
+          <option value="ALL">Todos los estados</option>
+          {Object.entries(statusLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>Tipo</span>
+        <select value={type} onChange={(event) => setType(event.target.value)} aria-label="Tipo de propiedad">
+          <option value="ALL">Todos los tipos</option>
+          {Object.entries(typeLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>Precio máximo</span>
+        <select value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} aria-label="Precio máximo">
+          <option value="">Cualquier precio</option>
+          <option value="3000000">Hasta $3 M</option>
+          <option value="5000000">Hasta $5 M</option>
+          <option value="7000000">Hasta $7 M</option>
+          <option value="10000000">Hasta $10 M</option>
+        </select>
+      </label>
+      <label>
+        <span>Recámaras</span>
+        <select
+          value={minBedrooms}
+          onChange={(event) => setMinBedrooms(event.target.value)}
+          aria-label="Recámaras mínimas"
+        >
+          <option value="">Cualquier cantidad</option>
+          <option value="1">1+ recámaras</option>
+          <option value="2">2+ recámaras</option>
+          <option value="3">3+ recámaras</option>
+          <option value="4">4+ recámaras</option>
+        </select>
+      </label>
+      <label className="check-filter">
+        <input type="checkbox" checked={favoritesOnly} onChange={(event) => setFavoritesOnly(event.target.checked)} />{' '}
+        Solo favoritas
+      </label>
+      <label className="check-filter">
+        <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} /> Ver
+        archivadas
+      </label>
+    </>
+  );
 
   async function moveProperty(id: string, nextStatus: PropertyDto['decisionStatus']) {
     const previous = properties.find((property) => property.id === id);
@@ -160,7 +277,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
       current.map((property) => (property.id === id ? { ...property, decisionStatus: nextStatus } : property))
     );
     try {
-      const saved = await setDecisionStatusAction(id, nextStatus);
+      const saved = await setDecisionStatusAction(id, nextStatus, searchId);
       setProperties((current) => current.map((property) => (property.id === id ? saved : property)));
     } catch (cause) {
       setProperties((current) => current.map((property) => (property.id === id ? previous : property)));
@@ -172,6 +289,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
 
   return (
     <main className="app-shell">
+      <SearchContextBar searchId={searchId} />
       <header className="workspace-toolbar">
         <div className="portfolio-count">
           <span>{filtered.length}</span>
@@ -183,14 +301,24 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
               {mode === 'board' ? 'Proceso' : mode === 'list' ? 'Lista' : mode === 'split' ? 'Mitad' : 'Mapa'}
             </button>
           ))}
-          <Link className="topbar-link" href="/drafts">
+          <Link className="topbar-link" href={`/searches/${searchId}/drafts`}>
             Borradores
           </Link>
-          <Link className="topbar-add" href="/properties/new">
+          <Link className="topbar-add" href={`/searches/${searchId}/properties/new`}>
             <MaterialIcon name="add" /> Agregar
           </Link>
         </div>
       </header>
+
+      <div className="mobile-workspace-heading">
+        <div>
+          <span>{filtered.length}</span>
+          <strong>{filtered.length === 1 ? 'propiedad' : 'propiedades'}</strong>
+        </div>
+        <Link href={`/searches/${searchId}/properties/new`} aria-label="Agregar propiedad">
+          <MaterialIcon name="add" />
+        </Link>
+      </div>
 
       <section className="filterbar" aria-label="Filtros">
         <label className="search-box">
@@ -203,49 +331,17 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
             placeholder="Busca colonia, calle o clave…"
           />
         </label>
-        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Estado de decisión">
-          <option value="ALL">Todos los estados</option>
-          {Object.entries(statusLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select value={type} onChange={(event) => setType(event.target.value)} aria-label="Tipo de propiedad">
-          <option value="ALL">Todos los tipos</option>
-          {Object.entries(typeLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} aria-label="Precio máximo">
-          <option value="">Cualquier precio</option>
-          <option value="3000000">Hasta $3 M</option>
-          <option value="5000000">Hasta $5 M</option>
-          <option value="7000000">Hasta $7 M</option>
-          <option value="10000000">Hasta $10 M</option>
-        </select>
-        <select
-          value={minBedrooms}
-          onChange={(event) => setMinBedrooms(event.target.value)}
-          aria-label="Recámaras mínimas"
-        >
-          <option value="">Cualquier recámara</option>
-          <option value="1">1+ recámaras</option>
-          <option value="2">2+ recámaras</option>
-          <option value="3">3+ recámaras</option>
-          <option value="4">4+ recámaras</option>
-        </select>
-        <label className="check-filter">
-          <input type="checkbox" checked={favoritesOnly} onChange={(event) => setFavoritesOnly(event.target.checked)} />{' '}
-          Solo favoritas
-        </label>
-        <label className="check-filter">
-          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />{' '}
-          Ver archivadas
-        </label>
+        <div className="desktop-filter-controls">{filterControls}</div>
+        <button className="mobile-filter-button" type="button" onClick={() => setFiltersOpen(true)}>
+          <MaterialIcon name="filter" /> Filtros {activeFilterCount ? <span>{activeFilterCount}</span> : null}
+        </button>
       </section>
+
+      {filtersOpen ? (
+        <FilterDialog activeCount={activeFilterCount} onClose={() => setFiltersOpen(false)} onClear={clearFilters}>
+          {filterControls}
+        </FilterDialog>
+      ) : null}
 
       {moveError ? (
         <div className="board-error" role="alert">
@@ -254,19 +350,12 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
       ) : null}
 
       {view === 'board' ? (
-        <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} />
+        <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} searchId={searchId} />
       ) : (
         <section className={`workspace view-${view}`}>
           <div className="list-pane">
             {filtered.length ? (
-              filtered.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                  selected={property.id === selectedId}
-                  onSelect={() => setSelectedId(property.id)}
-                />
-              ))
+              filtered.map((property) => <PropertyCard key={property.id} property={property} searchId={searchId} />)
             ) : (
               <div className="empty-state">
                 <span>
@@ -274,7 +363,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
                 </span>
                 <h2>No hay propiedades aquí</h2>
                 <p>Ajusta los filtros o agrega una por URL o manualmente.</p>
-                <Link className="button primary" href="/properties/new">
+                <Link className="button primary" href={`/searches/${searchId}/properties/new`}>
                   Agregar propiedad
                 </Link>
               </div>

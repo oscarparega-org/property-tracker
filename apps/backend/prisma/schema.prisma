@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  properties Property[]
-  imports PropertyImport[]
+  properties       Property[]
+  searches         Search[]
+  imports          PropertyImport[]
   providerSettings ProviderSetting[]
-  id            String    @id @default(uuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false) @map("email_verified")
-  image         String?
-  sessions      Session[]
-  accounts      Account[]
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id               String            @id @default(uuid())
+  name             String
+  email            String            @unique
+  emailVerified    Boolean           @default(false) @map("email_verified")
+  image            String?
+  sessions         Session[]
+  accounts         Account[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
   @@map("users")
 }
@@ -142,8 +143,8 @@ model ProviderSetting {
 }
 
 model Property {
-  ownerId String
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId             String
+  owner               User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   id                  String            @id @default(cuid())
   sourceProvider      String
   sourceUrl           String?
@@ -190,60 +191,108 @@ model Property {
   agentEmail          String?
   officeName          String?
   sourceOfficeId      String?
-  decisionStatus      DecisionStatus    @default(NEW)
-  isFavorite          Boolean           @default(false)
-  rating              Int?
-  notes               String?
-  visitAt             DateTime?
-  rejectionReason     String?
-  archivedAt          DateTime?
   publicationStatus   PublicationStatus @default(PUBLISHED)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   images              PropertyImage[]
   features            PropertyFeature[]
   imports             PropertyImport[]
+  searches            SearchProperty[]
 
   @@unique([ownerId, sourceUrl])
-  @@index([ownerId])
   @@unique([ownerId, sourceProvider, sourceListingId])
+  @@unique([id, ownerId])
+  @@index([ownerId])
   @@index([ownerId, publicationStatus])
-  @@index([decisionStatus])
-  @@index([archivedAt])
-  @@index([isFavorite])
   @@index([publicationStatus])
 }
 
 model PropertyImport {
-  ownerId String
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  id                  String       @id @default(cuid())
+  ownerId             String
+  owner               User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id                  String                 @id @default(cuid())
   url                 String
   canonicalUrl        String
-  status              ImportStatus @default(QUEUED)
-  kind                ImportKind   @default(STANDARD)
+  status              ImportStatus           @default(QUEUED)
+  kind                ImportKind             @default(STANDARD)
   strategy            String?
   provider            String?
-  retryCount          Int          @default(0)
+  retryCount          Int                    @default(0)
   draftData           Json?
   evidence            Json?
   errorMessage        String?
   inputTokens         Int?
   outputTokens        Int?
-  firecrawlCredits    Int          @default(0)
+  firecrawlCredits    Int                    @default(0)
   processingStartedAt DateTime?
   completedAt         DateTime?
   propertyId          String?
-  property            Property?    @relation(fields: [propertyId], references: [id], onDelete: SetNull)
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
+  property            Property?              @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  targets             PropertyImportTarget[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
+  @@unique([id, ownerId])
   @@index([status, createdAt])
   @@index([ownerId, canonicalUrl])
   @@index([canonicalUrl])
   @@index([ownerId])
   @@index([ownerId, kind, status])
   @@index([createdAt])
+}
+
+model Search {
+  id            String                 @id @default(cuid())
+  ownerId       String
+  owner         User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name          String
+  nameKey       String
+  isPrimary     Boolean                @default(false)
+  properties    SearchProperty[]
+  importTargets PropertyImportTarget[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@unique([ownerId, nameKey])
+  @@unique([id, ownerId])
+  @@index([ownerId, updatedAt])
+}
+
+model SearchProperty {
+  ownerId         String
+  searchId        String
+  search          Search         @relation(fields: [searchId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  propertyId      String
+  property        Property       @relation(fields: [propertyId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  decisionStatus  DecisionStatus @default(NEW)
+  isFavorite      Boolean        @default(false)
+  rating          Int?
+  notes           String?
+  visitAt         DateTime?
+  rejectionReason String?
+  archivedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@id([searchId, propertyId])
+  @@index([ownerId])
+  @@index([propertyId])
+  @@index([searchId, decisionStatus])
+  @@index([searchId, archivedAt])
+  @@index([searchId, isFavorite])
+}
+
+model PropertyImportTarget {
+  ownerId   String
+  importId  String
+  import    PropertyImport @relation(fields: [importId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  searchId  String
+  search    Search         @relation(fields: [searchId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@id([importId, searchId])
+  @@index([ownerId])
+  @@index([searchId])
 }
 
 model PropertyImage {

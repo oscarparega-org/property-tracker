@@ -1,5 +1,5 @@
-import { PropertyPage } from '@/components/property-page';
+import { LegacyPropertyRoute } from '@/components/legacy-property-route';
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <PropertyPage key={id} id={id} mode="detail" />;
+  return <LegacyPropertyRoute id={id} />;
 }

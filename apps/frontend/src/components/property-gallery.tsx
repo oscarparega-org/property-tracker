@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MaterialIcon } from '@/components/material-icon';
 
 type GalleryImage = {
@@ -11,12 +11,14 @@ type GalleryImage = {
 
 export function PropertyGallery({ images, title }: { images: GalleryImage[]; title: string }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const touchStart = useRef<number | null>(null);
   const preview = images.slice(0, 4);
 
   useEffect(() => {
     if (activeIndex === null) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setActiveIndex(null);
       if (event.key === 'ArrowLeft') {
@@ -28,8 +30,8 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
+      if (dialog?.open) dialog.close();
     };
   }, [activeIndex, images.length]);
 
@@ -62,7 +64,12 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
       </section>
 
       {activeIndex !== null && images[activeIndex] && (
-        <div className="carousel-backdrop" role="dialog" aria-modal="true" aria-label={`Galería de ${title}`}>
+        <dialog
+          ref={dialogRef}
+          className="carousel-backdrop"
+          aria-label={`Galería de ${title}`}
+          onCancel={() => setActiveIndex(null)}
+        >
           <div className="carousel-shell">
             <div className="carousel-topbar">
               <span>
@@ -72,7 +79,21 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
                 <MaterialIcon name="close" />
               </button>
             </div>
-            <div className="carousel-stage">
+            <div
+              className="carousel-stage"
+              onTouchStart={(event) => {
+                touchStart.current = event.changedTouches[0]?.clientX ?? null;
+              }}
+              onTouchEnd={(event) => {
+                const end = event.changedTouches[0]?.clientX;
+                if (touchStart.current === null || end === undefined) return;
+                const delta = end - touchStart.current;
+                touchStart.current = null;
+                if (Math.abs(delta) < 45) return;
+                if (delta > 0) showPrevious();
+                else showNext();
+              }}
+            >
               {images.length > 1 && (
                 <button
                   type="button"
@@ -95,7 +116,7 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
               <small>Usa ← → para navegar y Esc para cerrar</small>
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </>
   );

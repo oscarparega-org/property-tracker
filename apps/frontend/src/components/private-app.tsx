@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { Suspense, useEffect, useRef, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
 import { MaterialIcon } from '@/components/material-icon';
 import { mainContentId } from '@/components/skip-link';
+import { MobileNavigation } from '@/components/mobile-navigation';
 
 export function PrivateApp({ children }: { children: ReactNode }) {
   const path = usePathname();
@@ -67,6 +68,9 @@ export function PrivateApp({ children }: { children: ReactNode }) {
       <div className="authenticated-content" id={mainContentId} key={session.user.id} tabIndex={-1}>
         {children}
       </div>
+      <Suspense fallback={null}>
+        <MobileNavigation />
+      </Suspense>
     </div>
   );
 }
