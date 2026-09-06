@@ -4,7 +4,7 @@ export type ProviderContext = {
   fetchHtml: (url: string) => Promise<{ url: string; html: string }>;
   fetchJson: (
     url: string,
-    options?: { method?: 'GET' | 'POST'; referer?: string }
+    options?: { method?: 'GET' | 'POST'; referer?: string; body?: unknown }
   ) => Promise<{ url: string; data: unknown }>;
 };
 
