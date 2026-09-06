@@ -25,6 +25,7 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await expect(page.locator('.property-card')).toHaveCount(0);
   await page.getByRole('link', { name: 'Configuración e integraciones', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Integraciones personales' })).toBeVisible();
+  await expect(page.locator('details.account-menu')).not.toHaveAttribute('open', '');
   const openAiCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'OpenAI', exact: true }) });
   await openAiCard.getByLabel('API key de OpenAI').fill('sk-browser-owner-secret');
   await openAiCard.getByLabel('Usar OpenAI en mis importaciones').check();

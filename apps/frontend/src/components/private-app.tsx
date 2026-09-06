@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
@@ -8,11 +8,15 @@ import { MaterialIcon } from '@/components/material-icon';
 export function PrivateApp({ children }: { children: ReactNode }) {
   const path = usePathname();
   const router = useRouter();
+  const accountMenu = useRef<HTMLDetailsElement>(null);
   const { data: session, isPending } = authClient.useSession();
   const publicPage = path === '/sign-in' || path === '/sign-up';
   useEffect(() => {
     if (!publicPage && !isPending && !session) router.replace('/sign-in');
   }, [publicPage, isPending, session, router]);
+  useEffect(() => {
+    accountMenu.current?.removeAttribute('open');
+  }, [path]);
   if (publicPage) return children;
   if (isPending || !session) return <p className="empty-state">Cargando sesión…</p>;
   const appName = process.env.NEXT_PUBLIC_APP_NAME || 'House Tracker';
@@ -26,7 +30,7 @@ export function PrivateApp({ children }: { children: ReactNode }) {
           <span className="brand-mark"><MaterialIcon name="home" /></span>
           <strong>{appName}</strong>
         </Link>
-        <details className="account-menu">
+        <details className="account-menu" ref={accountMenu}>
           <summary aria-label={`Abrir menú de ${displayName}`}>
             <span className="account-avatar" aria-hidden="true">{initial}</span>
             <span className="account-identity"><strong>{displayName}</strong><small>{session.user.email}</small></span>
