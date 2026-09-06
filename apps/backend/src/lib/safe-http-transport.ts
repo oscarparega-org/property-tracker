@@ -35,7 +35,13 @@ async function readLimitedBody(response: Response) {
 
 async function fetchPublic(
   value: string,
-  request: { method?: 'GET' | 'POST'; referer?: string; accept: string; expectedContentTypes: string[] }
+  request: {
+    method?: 'GET' | 'POST';
+    referer?: string;
+    body?: string;
+    accept: string;
+    expectedContentTypes: string[];
+  }
 ) {
   let current = await assertSafePublicUrl(value);
   const method = request.method ?? 'GET';
@@ -46,6 +52,7 @@ async function fetchPublic(
       'user-agent': 'Mozilla/5.0 (compatible; HouseTracker/1.0; +property import)',
       accept: request.accept
     };
+    if (request.body !== undefined) headers['content-type'] = 'application/json';
     if (referer) {
       headers.referer = referer;
       headers.origin = new URL(referer).origin;
@@ -53,6 +60,7 @@ async function fetchPublic(
     const options: RequestInit & { dispatcher: typeof publicDispatcher } = {
       dispatcher: publicDispatcher,
       method,
+      body: request.body,
       redirect: 'manual',
       headers,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
@@ -82,9 +90,13 @@ export async function fetchPublicHtml(value: string) {
   return { url: result.url, html: result.body };
 }
 
-export async function fetchPublicJson(value: string, options: { method?: 'GET' | 'POST'; referer?: string } = {}) {
+export async function fetchPublicJson(
+  value: string,
+  options: { method?: 'GET' | 'POST'; referer?: string; body?: unknown } = {}
+) {
   const result = await fetchPublic(value, {
     ...options,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
     accept: 'application/json, text/plain, */*',
     expectedContentTypes: ['application/json']
   });
