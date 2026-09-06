@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { IntegrationProvider, ProviderSettingsDto } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 
 const labels: Record<IntegrationProvider, { name: string; description: string; credential: string }> = {
   OPENAI: {
@@ -30,6 +31,7 @@ function ProviderCard({
   const [credential, setCredential] = useState('');
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const copy = labels[initial.provider];
 
   useEffect(() => {
@@ -146,26 +148,31 @@ function ProviderCard({
             </button>
           )}
           {initial.credentialConfigured && (
-            <button
-              className="text-button"
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (window.confirm(`¿Eliminar la credencial de ${copy.name}?`))
-                  void run(
-                    () =>
-                      requestApi(`/api/settings/providers/${initial.provider.toLowerCase()}/credential`, {
-                        method: 'DELETE'
-                      }),
-                    'Credencial eliminada.'
-                  );
-              }}
-            >
+            <button className="text-button" type="button" disabled={pending} onClick={() => setDeleteOpen(true)}>
               Eliminar credencial
             </button>
           )}
         </div>
       </form>
+      {deleteOpen ? (
+        <ConfirmationDialog
+          title={`Eliminar credencial de ${copy.name}`}
+          description="Esta integración dejará de funcionar hasta que guardes una credencial nueva."
+          confirmLabel="Eliminar credencial"
+          danger
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={() => {
+            setDeleteOpen(false);
+            void run(
+              () =>
+                requestApi(`/api/settings/providers/${initial.provider.toLowerCase()}/credential`, {
+                  method: 'DELETE'
+                }),
+              'Credencial eliminada.'
+            );
+          }}
+        />
+      ) : null}
     </article>
   );
 }

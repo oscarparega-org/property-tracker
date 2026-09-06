@@ -10,11 +10,13 @@ import { DraftList } from './draft-list';
 export function PropertyPage({
   id,
   searchId,
-  mode = 'list'
+  mode = 'list',
+  initialView = 'list'
 }: {
   id?: string;
   searchId: string;
   mode?: 'list' | 'detail' | 'review' | 'drafts';
+  initialView?: 'board' | 'list';
 }) {
   const [data, setData] = useState<PropertyDto[] | null>(null);
   const [error, setError] = useState('');
@@ -65,5 +67,5 @@ export function PropertyPage({
       <PropertyDetail key={property.updatedAt} property={property} />
     );
   }
-  return <PropertyWorkspace initialProperties={data} searchId={searchId} />;
+  return <PropertyWorkspace initialProperties={data} searchId={searchId} initialView={initialView} />;
 }

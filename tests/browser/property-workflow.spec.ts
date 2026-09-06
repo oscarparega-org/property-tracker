@@ -92,29 +92,31 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await page.getByRole('button', { name: 'Guardar búsquedas' }).click();
   await expect(page.getByText('Búsquedas actualizadas.')).toBeVisible();
   await page.getByRole('link', { name: 'Volver al mapa y la lista' }).click();
-  await expect(page.locator('.kanban-card')).toHaveCount(1);
+  await expect(page.locator('.property-card')).toHaveCount(1);
   await page.getByLabel('Cambiar búsqueda').selectOption(secondSearchId);
-  await expect(page.getByLabel('Etapa de Casa de prueba')).toHaveValue('NEW');
-  await page.getByLabel('Etapa de Casa de prueba').selectOption('REJECTED');
-  await expect(page.getByLabel('Etapa de Casa de prueba')).toHaveValue('REJECTED');
+  await page.goto(`/searches/${secondSearchId}?view=process`);
+  const visibleStageControl = () => page.getByLabel('Etapa de Casa de prueba').filter({ visible: true });
+  await expect(visibleStageControl()).toHaveValue('NEW');
+  await visibleStageControl().selectOption('REJECTED');
+  await expect(visibleStageControl()).toHaveValue('REJECTED');
   await page.getByLabel('Cambiar búsqueda').selectOption(firstSearchId);
-  await expect(page.getByLabel('Etapa de Casa de prueba')).toHaveValue('VISITED');
+  await page.goto(`/searches/${firstSearchId}?view=process`);
+  await expect(visibleStageControl()).toHaveValue('VISITED');
   await page.screenshot({ path: 'test-results/workspace-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/workspace-mobile.png', fullPage: true });
-  const mobileLayout = await page.evaluate(() => {
-    window.scrollTo({ left: document.documentElement.scrollWidth, top: window.scrollY });
-    const offset = window.scrollX;
-    window.scrollTo({ left: 0, top: window.scrollY });
-    return {
-      offset,
-      containers: ['html', 'body', '.app-shell', '.filterbar', '.board-shell', '.kanban-board'].map((selector) => {
-        const element = document.querySelector<HTMLElement>(selector);
-        return { selector, clientWidth: element?.clientWidth, scrollWidth: element?.scrollWidth };
-      })
-    };
-  });
-  expect(mobileLayout.offset, JSON.stringify(mobileLayout)).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect(page.locator('.kanban-board')).toBeHidden();
+  await expect(page.locator('.mobile-process-list')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible();
+  await page.getByRole('link', { name: 'Propiedades', exact: true }).click();
+  await page.getByRole('button', { name: /^Filtros/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Filtrar propiedades' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar filtros' }).click();
+  expect(await page.locator('.filterbar').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.locator('.property-card .card-select').click();
+  await expect(page).toHaveURL(new RegExp(`/searches/${firstSearchId}/properties/[^/]+$`));
+  await expect(page.getByRole('button', { name: 'Actualizar mi decisión' })).toBeVisible();
   await page.locator('details.account-menu > summary').click();
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page).toHaveURL('/sign-in');
