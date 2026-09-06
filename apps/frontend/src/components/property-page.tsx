@@ -7,7 +7,15 @@ import { PropertyDetail } from './property-detail';
 import { ReviewPropertyEditor } from './review-property-editor';
 import { DraftList } from './draft-list';
 
-export function PropertyPage({ id, mode = 'list' }: { id?: string; mode?: 'list' | 'detail' | 'review' | 'drafts' }) {
+export function PropertyPage({
+  id,
+  mode = 'list',
+  initialView = 'list'
+}: {
+  id?: string;
+  mode?: 'list' | 'detail' | 'review' | 'drafts';
+  initialView?: 'board' | 'list';
+}) {
   const [data, setData] = useState<PropertyDto[] | null>(null);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -56,5 +64,5 @@ export function PropertyPage({ id, mode = 'list' }: { id?: string; mode?: 'list'
       <PropertyDetail key={property.updatedAt} property={property} />
     );
   }
-  return <PropertyWorkspace initialProperties={data} />;
+  return <PropertyWorkspace initialProperties={data} initialView={initialView} />;
 }

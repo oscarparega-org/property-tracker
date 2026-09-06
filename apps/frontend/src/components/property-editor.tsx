@@ -2,10 +2,11 @@
 import { ActionForm } from '@/components/action-form';
 import { localDateInput } from '@/lib/date-input';
 
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { savePropertyAction, setArchivedAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
 import type { PropertyDto } from '@house-tracker/shared';
+import { ConfirmationDialog } from '@/components/confirmation-dialog';
 
 type Props = { property: PropertyDto; onClose: () => void; creating?: boolean };
 
@@ -61,6 +62,18 @@ function TextArea({
 
 export function PropertyEditor({ property, onClose, creating = false }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [dirty, setDirty] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, []);
+  function requestClose() {
+    if (dirty) setConfirmClose(true);
+    else onClose();
+  }
   const features = (category: 'AREA' | 'EQUIPMENT' | 'OTHER') =>
     property.features
       .filter((item) => item.category === category)
@@ -68,14 +81,15 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
       .join('\n');
 
   return (
-    <div
-      className="modal-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <dialog className="editor-modal" open ref={dialogRef}>
+    <>
+      <dialog
+        className="editor-modal"
+        ref={dialogRef}
+        onCancel={(event) => {
+          event.preventDefault();
+          requestClose();
+        }}
+      >
         <div className="modal-heading">
           <div>
             <span className="eyebrow">
@@ -87,15 +101,18 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
             </span>
             <h2>{property.title}</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar editor">
+          <button className="icon-button" type="button" onClick={requestClose} aria-label="Cerrar editor">
             <MaterialIcon name="close" />
           </button>
         </div>
 
-        <ActionForm action={savePropertyAction} className="editor-form">
+        <ActionForm action={savePropertyAction} className="editor-form" onChange={() => setDirty(true)}>
           <input type="hidden" name="id" value={property.id} />
-          <section>
-            <h3>Fuente y publicación</h3>
+          <details className="editor-section" open>
+            <summary>
+              <span>Información principal</span>
+              <small>Fuente, título, tipo, precio y descripción</small>
+            </summary>
             <div className="field-grid">
               <TextField label="Portal" name="sourceProvider" value={property.sourceProvider} />
               <TextField label="URL (opcional)" name="sourceUrl" type="url" value={property.sourceUrl} />
@@ -115,10 +132,13 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
               <TextField label="Moneda" name="priceCurrency" value={property.priceCurrency} />
               <TextArea label="Descripción" name="description" value={property.description} rows={8} />
             </div>
-          </section>
+          </details>
 
-          <section>
-            <h3>Ubicación</h3>
+          <details className="editor-section">
+            <summary>
+              <span>Ubicación</span>
+              <small>Dirección y coordenadas</small>
+            </summary>
             <div className="field-grid">
               <TextField label="Calle" name="street" value={property.street} />
               <TextField label="Número exterior" name="exteriorNumber" value={property.exteriorNumber} />
@@ -132,10 +152,13 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
               <TextField label="Longitud" name="longitude" type="number" step="any" value={property.longitude} />
               <TextField label="Dirección completa" name="formattedAddress" value={property.formattedAddress} />
             </div>
-          </section>
+          </details>
 
-          <section>
-            <h3>Características</h3>
+          <details className="editor-section">
+            <summary>
+              <span>Características</span>
+              <small>Medidas, recámaras y equipamiento</small>
+            </summary>
             <div className="field-grid">
               <TextField label="Terreno (m²)" name="landAreaM2" type="number" step="0.01" value={property.landAreaM2} />
               <TextField
@@ -191,10 +214,13 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
                 value={property.technicalSheetQrUrl}
               />
             </div>
-          </section>
+          </details>
 
-          <section>
-            <h3>Contacto y medios</h3>
+          <details className="editor-section">
+            <summary>
+              <span>Contacto y fotos</span>
+              <small>Agente, oficina, imágenes y amenidades</small>
+            </summary>
             <div className="field-grid">
               <TextField label="Agente" name="agentName" value={property.agentName} />
               <TextField label="Foto del agente" name="agentAvatarUrl" type="url" value={property.agentAvatarUrl} />
@@ -217,10 +243,13 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
               <TextArea label="Equipo · uno por línea" name="equipmentFeatures" value={features('EQUIPMENT')} />
               <TextArea label="Otros · uno por línea" name="otherFeatures" value={features('OTHER')} />
             </div>
-          </section>
+          </details>
 
-          <section>
-            <h3>Mi decisión</h3>
+          <details className="editor-section">
+            <summary>
+              <span>Mi decisión y datos avanzados</span>
+              <small>Estado, notas y metadatos</small>
+            </summary>
             <div className="field-grid">
               <label>
                 <span>Estado</span>
@@ -258,10 +287,10 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
                 rows={10}
               />
             </div>
-          </section>
+          </details>
 
           <div className="modal-actions">
-            <button className="button subtle" type="button" onClick={onClose}>
+            <button className="button subtle" type="button" onClick={requestClose}>
               Cancelar
             </button>
             {creating || property.publicationStatus === 'DRAFT' ? (
@@ -295,6 +324,16 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
           </ActionForm>
         )}
       </dialog>
-    </div>
+      {confirmClose ? (
+        <ConfirmationDialog
+          title="¿Cerrar sin guardar?"
+          description="Los cambios hechos en esta propiedad se perderán."
+          confirmLabel="Descartar cambios"
+          danger
+          onClose={() => setConfirmClose(false)}
+          onConfirm={onClose}
+        />
+      ) : null}
+    </>
   );
 }

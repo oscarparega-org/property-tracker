@@ -1,4 +1,6 @@
 'use client';
+
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -11,8 +13,10 @@ import ErrorIcon from '@mui/icons-material/Error';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import HomeIcon from '@mui/icons-material/Home';
 import LinkIcon from '@mui/icons-material/Link';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import LocationOffIcon from '@mui/icons-material/LocationOff';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
@@ -32,10 +36,13 @@ const icons = {
   expandMore: ExpandMoreIcon,
   favorite: FavoriteIcon,
   favoriteBorder: FavoriteBorderIcon,
+  filter: FilterAltIcon,
   home: HomeIcon,
   link: LinkIcon,
+  list: ListAltIcon,
   locationOff: LocationOffIcon,
   logout: LogoutIcon,
+  process: AccountTreeIcon,
   search: SearchIcon,
   settings: SettingsIcon,
   sync: SyncIcon

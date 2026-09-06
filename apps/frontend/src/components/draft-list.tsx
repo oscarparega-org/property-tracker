@@ -21,7 +21,7 @@ export function DraftList({ drafts }: { drafts: PropertyDto[] }) {
         {drafts.length ? (
           <div className="draft-grid">
             {drafts.map((property) => (
-              <article className="draft-card" key={property.id}>
+              <Link className="draft-card" href={`/properties/${property.id}/review`} key={property.id}>
                 {property.images[0] ? (
                   <>
                     {/* Listing images use arbitrary external hosts. */}
@@ -31,14 +31,17 @@ export function DraftList({ drafts }: { drafts: PropertyDto[] }) {
                   <div className="image-placeholder">Sin foto</div>
                 )}
                 <div>
-                  <span>{property.sourceProvider}</span>
+                  <span>
+                    {property.sourceProvider} · Actualizado{' '}
+                    {new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(property.updatedAt))}
+                  </span>
                   <h2>{property.title}</h2>
                   <p>{property.formattedAddress ?? 'Ubicación pendiente'}</p>
-                  <Link href={`/properties/${property.id}/review`}>
+                  <strong className="draft-card-action">
                     Revisar y publicar <MaterialIcon name="arrowForward" />
-                  </Link>
+                  </strong>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         ) : (
