@@ -1,5 +1,6 @@
 import { fetchWithFirecrawl } from './firecrawl-client.js';
 import { extractDeterministic } from './generic-property-extractor.js';
+import { resolveImportProvider } from './import-providers/registry.js';
 import { assessAndNormalizeWithOpenAI } from './openai-extractor.js';
 import { fetchDirect } from './safe-http-transport.js';
 import type { ExtractionOptions, ExtractionResult } from './import-types.js';
@@ -19,17 +20,28 @@ export { ListingValidationError, ProviderRequestError } from './import-types.js'
 
 export async function extractProperty(value: string, options: ExtractionOptions): Promise<ExtractionResult> {
   const mode = options.mode ?? 'STANDARD';
+  const provider = resolveImportProvider(new URL(value));
+  const requiresRenderedFetch = provider.requiresRenderedFetch === true;
   let artifact;
   let firecrawlCredits = 0;
 
-  if (mode === 'DEEP') {
-    options.debug?.('firecrawl.required', { mode });
-    if (!options.firecrawl || !options.openai) {
+  if (mode === 'DEEP' || requiresRenderedFetch) {
+    options.debug?.('firecrawl.required', { mode, providerKey: provider.key, requiresRenderedFetch });
+    if (!options.firecrawl) {
+      if (requiresRenderedFetch)
+        throw new ListingValidationError(
+          `${provider.name} bloquea las descargas directas. Configura Firecrawl para importar publicaciones de este portal.`
+        );
+      throw new Error('La mejora profunda requiere Firecrawl y OpenAI activos.');
+    }
+    if (mode === 'DEEP' && !options.openai) {
       throw new Error('La mejora profunda requiere Firecrawl y OpenAI activos.');
     }
     options.debug?.('firecrawl.request.started');
     try {
-      artifact = await fetchWithFirecrawl(value, options.firecrawl.credential);
+      artifact = await fetchWithFirecrawl(value, options.firecrawl.credential, {
+        onlyMainContent: !requiresRenderedFetch
+      });
     } catch (error) {
       options.debug?.('firecrawl.request.failed', { error });
       if (error instanceof ProviderRequestError && error.reason === 'AUTH') {

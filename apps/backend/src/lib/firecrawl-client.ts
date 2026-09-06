@@ -9,7 +9,11 @@ function providerName(url: URL) {
   return url.hostname.replace(/^www\./, '');
 }
 
-export async function fetchWithFirecrawl(value: string, key: string): Promise<ExtractionArtifact> {
+export async function fetchWithFirecrawl(
+  value: string,
+  key: string,
+  options: { onlyMainContent?: boolean } = {}
+): Promise<ExtractionArtifact> {
   await assertSafePublicUrl(value);
   const response = await fetch('https://api.firecrawl.dev/v2/scrape', {
     method: 'POST',
@@ -17,7 +21,7 @@ export async function fetchWithFirecrawl(value: string, key: string): Promise<Ex
     body: JSON.stringify({
       url: value,
       formats: ['markdown', 'rawHtml'],
-      onlyMainContent: true,
+      onlyMainContent: options.onlyMainContent ?? true,
       proxy: 'auto',
       timeout: 60_000,
       storeInCache: true
