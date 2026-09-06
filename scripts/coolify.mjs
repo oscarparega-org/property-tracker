@@ -20,12 +20,24 @@ export function buildDeploymentConfig(source = process.env) {
   if (!baseDomain.includes('.') || baseDomain.split('.').some((label) => !DNS_LABEL.test(label))) throw new Error('DEPLOY_BASE_DOMAIN must be a valid domain without a protocol or wildcard prefix');
   const apiUrl = required('COOLIFY_API_URL').replace(/\/$/, '');
   if (!/^https:\/\//.test(apiUrl)) throw new Error('COOLIFY_API_URL must use HTTPS');
+  const providerCredentialEncryptionKey = required('PROVIDER_CREDENTIAL_ENCRYPTION_KEY');
+  let decodedProviderCredentialEncryptionKey;
+  try {
+    decodedProviderCredentialEncryptionKey = Buffer.from(providerCredentialEncryptionKey, 'base64');
+  } catch {
+    throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must be valid base64');
+  }
+  if (decodedProviderCredentialEncryptionKey.length < 32
+    || decodedProviderCredentialEncryptionKey.toString('base64') !== providerCredentialEncryptionKey) {
+    throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must be canonical base64 encoding at least 32 bytes');
+  }
 
   return {
     apiUrl,
     serverUuid: required('COOLIFY_SERVER_UUID'),
     writeToken: required('COOLIFY_WRITE_TOKEN'),
     deployToken: required('COOLIFY_DEPLOY_TOKEN'),
+    providerCredentialEncryptionKey,
     repository,
     repositoryId,
     sha: required('GITHUB_SHA'),
@@ -145,7 +157,17 @@ export async function reconcile(client, config) {
       // build, including values that are only consumed by runtime services.
       { key: 'FRONTEND_URL', value: config.frontendUrl, is_buildtime: true, is_runtime: true, is_preview: false },
       { key: 'PUBLIC_API_URL', value: config.apiPublicUrl, is_buildtime: true, is_runtime: true, is_preview: false },
-      { key: 'APP_NAME', value: config.displayName, is_buildtime: true, is_runtime: true, is_preview: false }
+      { key: 'APP_NAME', value: config.displayName, is_buildtime: true, is_runtime: true, is_preview: false },
+      {
+        key: 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY',
+        value: config.providerCredentialEncryptionKey,
+        // Compose interpolates service environment entries during its build
+        // phase, even though the application only consumes this at runtime.
+        is_buildtime: true,
+        is_runtime: true,
+        is_preview: false,
+        is_literal: true
+      }
     ] }
   });
   return { project, environment, destination, application };
