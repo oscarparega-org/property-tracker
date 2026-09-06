@@ -9,11 +9,15 @@ There is no seed step, legacy-data import, or automatic account creation. New ac
 After deployment:
 
 1. Open the frontend and create an account.
-2. Choose **Agregar** and submit a public property-listing URL.
-3. Wait for extraction, review the draft, then select **Publicar**.
-4. Check the map/list and save favorites, notes, rating, or a visit date.
+2. Create a named search from the empty search overview.
+3. Open the search, choose **Agregar**, and submit a public property-listing URL.
+4. Optionally select other searches that should contain the same property.
+5. Wait for extraction, review the draft, then select **Publicar**.
+6. Check the map/list and save favorites, notes, rating, or a visit date for that search.
 
-Every property, draft, and import belongs to its authenticated owner. Two users may import the same listing independently. Photos remain external URLs; files are not uploaded.
+Every search, property, draft, and import belongs to its authenticated owner. An account may have up to three searches. One property can belong to several searches: listing facts are shared, while status, favorites, notes, ratings, visits, rejection reasons, and archive state are stored independently per search. Two users may import the same listing independently. Photos remain external URLs; files are not uploaded.
+
+The multi-search migration is additive and retains the former lifecycle columns as rollback-compatible shadow data. Existing accounts receive a primary search named **Mi búsqueda**, and the migration aborts if property counts, ownership, or copied lifecycle values do not match. Removing the legacy columns is intentionally deferred to a later migration after the production rollback window closes.
 
 ## Local development
 
@@ -94,7 +98,7 @@ GitHub Actions remains the only deployment controller: quality checks and contai
 
 Organization/repository Actions variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UUID`, `DEPLOY_BASE_DOMAIN`. Secrets: `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`, plus `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` in the GitHub `dev` environment. The existing provisioner manages isolated repository resources and frontend/API domains.
 
-The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials and the Better Auth secret; the deployment controller injects the stable provider-credential encryption key from GitHub's `dev` environment. User provider tokens never enter the frontend build or deployment environment.
+The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The multi-search cutover intentionally takes a brief maintenance window: its final migration locks `Property`, reconciles every property into a search, and removes the old lifecycle columns before the replacement API starts. This prevents old and new application versions from writing different lifecycle sources. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials and the Better Auth secret; the deployment controller injects the stable provider-credential encryption key from GitHub's `dev` environment. User provider tokens never enter the frontend build or deployment environment.
 
 Back up the PostgreSQL volume before deploying migrations. Roll back application code through the same exact-SHA pipeline, and review migration compatibility before selecting an older release because production migrations are forward-only. Do not reset or drop the database as a deployment step.
 

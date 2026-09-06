@@ -37,11 +37,13 @@ function money(amount: number | null, currency: string | null) {
 export function PropertyBoard({
   properties,
   busyId,
-  onMove
+  onMove,
+  searchId
 }: {
   properties: PropertyDto[];
   busyId: string | null;
   onMove: (id: string, status: PropertyDto['decisionStatus']) => void;
+  searchId: string;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overStatus, setOverStatus] = useState<PropertyDto['decisionStatus'] | null>(null);
@@ -150,7 +152,10 @@ export function PropertyBoard({
                           ))}
                         </select>
                       </label>
-                      <Link href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
+                      <Link
+                        href={`/searches/${searchId}/properties/${property.id}`}
+                        aria-label={`Ver ${property.title}`}
+                      >
                         <MaterialIcon name="arrowForward" />
                       </Link>
                     </div>

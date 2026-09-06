@@ -20,8 +20,10 @@ export function ActionForm({ action, children, ...props }: Props) {
         try {
           const result = await action(form);
           window.dispatchEvent(new Event('properties-changed'));
-          if (form.has('publicationStatus'))
-            router.push(`/properties/${result.id}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`);
+          if (form.has('publicationStatus')) {
+            const base = result.searchId ? `/searches/${result.searchId}` : '';
+            router.push(`${base}/properties/${result.id}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`);
+          }
         } catch (cause) {
           setError(cause instanceof Error ? cause.message : 'No fue posible guardar.');
         } finally {

@@ -9,6 +9,7 @@ import type { PropertyDto } from '@house-tracker/shared';
 import { PropertyEditor } from '@/components/property-editor';
 import { PropertyMap } from '@/components/property-map';
 import { PropertyBoard } from '@/components/property-board';
+import { SearchContextBar } from '@/components/search-context-bar';
 
 type ViewMode = 'board' | 'split' | 'list' | 'map';
 
@@ -49,10 +50,12 @@ function Metric({ value, label }: { value: string | number | null; label: string
 
 function PropertyCard({
   property,
+  searchId,
   selected,
   onSelect
 }: {
   property: PropertyDto;
+  searchId: string;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -92,7 +95,7 @@ function PropertyCard({
       </button>
 
       <div className="card-actions">
-        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite)}>
+        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite, searchId)}>
           <button
             className={`favorite-button${property.isFavorite ? ' is-active' : ''}`}
             type="submit"
@@ -104,7 +107,7 @@ function PropertyCard({
       </div>
       <Link
         className="card-detail-button"
-        href={`/properties/${property.id}`}
+        href={`/searches/${searchId}/properties/${property.id}`}
         aria-label={`Ver ${property.title}`}
         title="Ver propiedad"
       >
@@ -114,7 +117,13 @@ function PropertyCard({
   );
 }
 
-export function PropertyWorkspace({ initialProperties }: { initialProperties: PropertyDto[] }) {
+export function PropertyWorkspace({
+  initialProperties,
+  searchId
+}: {
+  initialProperties: PropertyDto[];
+  searchId: string;
+}) {
   const [view, setView] = useState<ViewMode>('board');
   const [properties, setProperties] = useState(initialProperties);
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -160,7 +169,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
       current.map((property) => (property.id === id ? { ...property, decisionStatus: nextStatus } : property))
     );
     try {
-      const saved = await setDecisionStatusAction(id, nextStatus);
+      const saved = await setDecisionStatusAction(id, nextStatus, searchId);
       setProperties((current) => current.map((property) => (property.id === id ? saved : property)));
     } catch (cause) {
       setProperties((current) => current.map((property) => (property.id === id ? previous : property)));
@@ -172,6 +181,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
 
   return (
     <main className="app-shell">
+      <SearchContextBar searchId={searchId} />
       <header className="workspace-toolbar">
         <div className="portfolio-count">
           <span>{filtered.length}</span>
@@ -183,10 +193,10 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
               {mode === 'board' ? 'Proceso' : mode === 'list' ? 'Lista' : mode === 'split' ? 'Mitad' : 'Mapa'}
             </button>
           ))}
-          <Link className="topbar-link" href="/drafts">
+          <Link className="topbar-link" href={`/searches/${searchId}/drafts`}>
             Borradores
           </Link>
-          <Link className="topbar-add" href="/properties/new">
+          <Link className="topbar-add" href={`/searches/${searchId}/properties/new`}>
             <MaterialIcon name="add" /> Agregar
           </Link>
         </div>
@@ -254,7 +264,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
       ) : null}
 
       {view === 'board' ? (
-        <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} />
+        <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} searchId={searchId} />
       ) : (
         <section className={`workspace view-${view}`}>
           <div className="list-pane">
@@ -263,6 +273,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
                 <PropertyCard
                   key={property.id}
                   property={property}
+                  searchId={searchId}
                   selected={property.id === selectedId}
                   onSelect={() => setSelectedId(property.id)}
                 />
@@ -274,7 +285,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
                 </span>
                 <h2>No hay propiedades aquí</h2>
                 <p>Ajusta los filtros o agrega una por URL o manualmente.</p>
-                <Link className="button primary" href="/properties/new">
+                <Link className="button primary" href={`/searches/${searchId}/properties/new`}>
                   Agregar propiedad
                 </Link>
               </div>

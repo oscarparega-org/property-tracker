@@ -8,7 +8,11 @@ import {
 
 const includeRelations = {
   images: { orderBy: { sortOrder: 'asc' as const } },
-  features: { orderBy: [{ category: 'asc' as const }, { name: 'asc' as const }] }
+  features: { orderBy: [{ category: 'asc' as const }, { name: 'asc' as const }] },
+  searches: {
+    include: { search: { select: { id: true, name: true, isPrimary: true } } },
+    orderBy: { createdAt: 'asc' as const }
+  }
 };
 
 export type PropertyRecord = Prisma.PropertyGetPayload<{
@@ -127,14 +131,30 @@ function number(value: { toString(): string } | null) {
   return value === null ? null : Number(value.toString());
 }
 
-export function toPropertyDto(record: PropertyRecord): PropertyDto {
-  const { ownerId: _ownerId, ...property } = record;
+export function toPropertyDto(record: PropertyRecord, searchId?: string): PropertyDto {
+  const { ownerId: _ownerId, searches: _searches, ...property } = record;
   void _ownerId;
+  void _searches;
+  const membership =
+    record.searches.find((item) => item.searchId === searchId) ??
+    record.searches.find((item) => item.search.isPrimary) ??
+    record.searches[0];
   return {
     ...property,
+    searchId: membership?.searchId ?? null,
+    memberships: record.searches.map((item) => ({
+      searchId: item.searchId,
+      name: item.search.name,
+      isPrimary: item.search.isPrimary
+    })),
+    decisionStatus: membership?.decisionStatus ?? 'NEW',
+    isFavorite: membership?.isFavorite ?? false,
+    rating: membership?.rating ?? null,
+    notes: membership?.notes ?? null,
+    visitAt: membership?.visitAt?.toISOString() ?? null,
+    rejectionReason: membership?.rejectionReason ?? null,
+    archivedAt: membership?.archivedAt?.toISOString() ?? null,
     sourceObservedAt: record.sourceObservedAt.toISOString(),
-    visitAt: record.visitAt?.toISOString() ?? null,
-    archivedAt: record.archivedAt?.toISOString() ?? null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     priceAmount: number(record.priceAmount),
@@ -147,30 +167,39 @@ export function toPropertyDto(record: PropertyRecord): PropertyDto {
   };
 }
 
-export async function listProperties(db: PrismaClient, ownerId: string) {
+export async function listProperties(db: PrismaClient | Prisma.TransactionClient, ownerId: string, searchId?: string) {
   const records = await db.property.findMany({
-    where: { ownerId, publicationStatus: 'PUBLISHED' },
-    include: includeRelations,
-    orderBy: [{ archivedAt: 'asc' }, { updatedAt: 'desc' }]
-  });
-  return records.map(toPropertyDto);
-}
-
-export async function listDraftProperties(db: PrismaClient, ownerId: string) {
-  const records = await db.property.findMany({
-    where: { ownerId, publicationStatus: 'DRAFT' },
+    where: { ownerId, publicationStatus: 'PUBLISHED', ...(searchId ? { searches: { some: { searchId } } } : {}) },
     include: includeRelations,
     orderBy: { updatedAt: 'desc' }
   });
-  return records.map(toPropertyDto);
+  return records.map((record) => toPropertyDto(record, searchId));
 }
 
-export async function getProperty(db: PrismaClient, id: string, ownerId: string) {
+export async function listDraftProperties(
+  db: PrismaClient | Prisma.TransactionClient,
+  ownerId: string,
+  searchId?: string
+) {
+  const records = await db.property.findMany({
+    where: { ownerId, publicationStatus: 'DRAFT', ...(searchId ? { searches: { some: { searchId } } } : {}) },
+    include: includeRelations,
+    orderBy: { updatedAt: 'desc' }
+  });
+  return records.map((record) => toPropertyDto(record, searchId));
+}
+
+export async function getProperty(
+  db: PrismaClient | Prisma.TransactionClient,
+  id: string,
+  ownerId: string,
+  searchId?: string
+) {
   const record = await db.property.findUnique({
-    where: { id, ownerId },
+    where: { id, ownerId, ...(searchId ? { searches: { some: { searchId } } } : {}) },
     include: includeRelations
   });
-  return record ? toPropertyDto(record) : null;
+  return record ? toPropertyDto(record, searchId) : null;
 }
 
 type PreviewChange = EnhancementPreviewDto['changes'][number];

@@ -52,7 +52,7 @@ globalThis.fetch = async (input, init) => {
   }
   return fetchOriginal(input, init);
 };
-const server = serve({ fetch: createApp().fetch, port: 3000 });
+const server = serve({ fetch: createApp().fetch, port: Number(process.env.PORT || 3000) });
 let stopping = false;
 async function stop() {
   stopping = true;

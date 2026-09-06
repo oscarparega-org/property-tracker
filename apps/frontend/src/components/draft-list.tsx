@@ -4,17 +4,17 @@ import { MaterialIcon } from '@/components/material-icon';
 import { BodyNavigation } from '@/components/body-navigation';
 import type { PropertyDto } from '@house-tracker/shared';
 
-export function DraftList({ drafts }: { drafts: PropertyDto[] }) {
+export function DraftList({ drafts, searchId }: { drafts: PropertyDto[]; searchId: string }) {
   return (
     <main className="drafts-page">
-      <BodyNavigation current="Borradores" />
+      <BodyNavigation current="Borradores" backHref={`/searches/${searchId}`} />
       <section className="drafts-content">
         <div className="drafts-heading">
           <div>
             <span className="eyebrow">Pendientes de revisión</span>
             <h1>Borradores</h1>
           </div>
-          <Link className="button primary" href="/properties/new">
+          <Link className="button primary" href={`/searches/${searchId}/properties/new`}>
             Agregar propiedad
           </Link>
         </div>
@@ -34,7 +34,7 @@ export function DraftList({ drafts }: { drafts: PropertyDto[] }) {
                   <span>{property.sourceProvider}</span>
                   <h2>{property.title}</h2>
                   <p>{property.formattedAddress ?? 'Ubicación pendiente'}</p>
-                  <Link href={`/properties/${property.id}/review`}>
+                  <Link href={`/searches/${searchId}/properties/${property.id}/review`}>
                     Revisar y publicar <MaterialIcon name="arrowForward" />
                   </Link>
                 </div>

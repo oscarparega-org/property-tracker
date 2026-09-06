@@ -1,23 +1,11 @@
 'use client';
 import { ActionForm } from '@/components/action-form';
-import { localDateInput } from '@/lib/date-input';
-
 import { useRef } from 'react';
 import { savePropertyAction, setArchivedAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
-import type { PropertyDto } from '@house-tracker/shared';
+import type { PropertyDto, SearchDto } from '@house-tracker/shared';
 
-type Props = { property: PropertyDto; onClose: () => void; creating?: boolean };
-
-const statuses = [
-  ['NEW', 'Nueva'],
-  ['CONTACTED', 'Contactada'],
-  ['VISIT_SCHEDULED', 'Visita agendada'],
-  ['VISITED', 'Visitada'],
-  ['OFFER_MADE', 'Oferta enviada'],
-  ['REJECTED', 'Descartada'],
-  ['PURCHASED', 'Comprada']
-] as const;
+type Props = { property: PropertyDto; onClose: () => void; creating?: boolean; searchOptions?: SearchDto[] };
 
 function TextField({
   label,
@@ -59,7 +47,7 @@ function TextArea({
   );
 }
 
-export function PropertyEditor({ property, onClose, creating = false }: Props) {
+export function PropertyEditor({ property, onClose, creating = false, searchOptions = [] }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const features = (category: 'AREA' | 'EQUIPMENT' | 'OTHER') =>
     property.features
@@ -94,6 +82,32 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
 
         <ActionForm action={savePropertyAction} className="editor-form">
           <input type="hidden" name="id" value={property.id} />
+          <input type="hidden" name="searchId" value={property.searchId ?? ''} />
+          {creating ? (
+            <section className="editor-search-targets">
+              <h3>Agregar a búsquedas</h3>
+              <div className="search-targets">
+                {searchOptions.map((search) => (
+                  <label key={search.id}>
+                    <input
+                      name="searchIds"
+                      value={search.id}
+                      type="checkbox"
+                      defaultChecked={search.id === property.searchId}
+                      disabled={search.id === property.searchId}
+                    />
+                    {search.id === property.searchId ? (
+                      <input name="searchIds" value={search.id} type="hidden" />
+                    ) : null}
+                    <span>
+                      {search.name}
+                      {search.id === property.searchId ? ' · actual' : ''}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <section>
             <h3>Fuente y publicación</h3>
             <div className="field-grid">
@@ -219,46 +233,7 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
             </div>
           </section>
 
-          <section>
-            <h3>Mi decisión</h3>
-            <div className="field-grid">
-              <label>
-                <span>Estado</span>
-                <select name="decisionStatus" defaultValue={property.decisionStatus}>
-                  {statuses.map(([value, label]) => (
-                    <option value={value} key={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Calificación</span>
-                <select name="rating" defaultValue={property.rating ?? ''}>
-                  <option value="">Sin calificar</option>
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <option key={value} value={value}>
-                      {value} / 5
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <TextField
-                label="Fecha de visita"
-                name="visitAt"
-                type="datetime-local"
-                value={localDateInput(property.visitAt)}
-              />
-              <TextArea label="Notas" name="notes" value={property.notes} rows={5} />
-              <TextArea label="Razón para descartar" name="rejectionReason" value={property.rejectionReason} rows={3} />
-              <TextArea
-                label="Metadatos originales (JSON)"
-                name="sourceMetadata"
-                value={JSON.stringify(property.sourceMetadata, null, 2)}
-                rows={10}
-              />
-            </div>
-          </section>
+          <input type="hidden" name="sourceMetadata" value={JSON.stringify(property.sourceMetadata)} />
 
           <div className="modal-actions">
             <button className="button subtle" type="button" onClick={onClose}>
@@ -286,7 +261,7 @@ export function PropertyEditor({ property, onClose, creating = false }: Props) {
 
         {!creating && (
           <ActionForm
-            action={setArchivedAction.bind(null, property.id, !property.archivedAt)}
+            action={setArchivedAction.bind(null, property.id, !property.archivedAt, property.searchId)}
             className="archive-action"
           >
             <button className="text-button" type="submit">

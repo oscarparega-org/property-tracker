@@ -1,4 +1,4 @@
-import { PropertyPage } from '@/components/property-page';
+import { SearchOverview } from '@/components/search-overview';
 export default function Home() {
-  return <PropertyPage />;
+  return <SearchOverview />;
 }

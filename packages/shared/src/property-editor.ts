@@ -70,17 +70,6 @@ export const editorSchema = z.object({
   agentEmail: z.string().trim().email().or(z.literal('')),
   officeName: optionalText,
   sourceOfficeId: optionalText,
-  decisionStatus: z.enum(['NEW', 'CONTACTED', 'VISIT_SCHEDULED', 'VISITED', 'OFFER_MADE', 'REJECTED', 'PURCHASED']),
-  rating: z
-    .string()
-    .transform((value) => (value ? Number(value) : null))
-    .pipe(z.number().int().min(1).max(5).nullable()),
-  notes: optionalText,
-  visitAt: z
-    .string()
-    .transform((value) => (value ? new Date(value) : null))
-    .pipe(z.date().nullable()),
-  rejectionReason: optionalText,
   sourceMetadata: z.string().transform((value, context) => {
     try {
       return JSON.parse(value) as unknown;

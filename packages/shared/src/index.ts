@@ -9,3 +9,4 @@ export * from './property-input.js';
 export * from './property-editor.js';
 export * from './property-requests.js';
 export * from './provider-settings.js';
+export * from './search.js';

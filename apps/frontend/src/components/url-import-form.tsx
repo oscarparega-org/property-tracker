@@ -1,11 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ImportJobDto, ImportStartDto, ImportRequest } from '@house-tracker/shared';
+import type { ImportJobDto, ImportStartDto, ImportRequest, SearchDto } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
 import { MaterialIcon } from './material-icon';
 
-export function UrlImportForm() {
+export function UrlImportForm({ searchId, searches }: { searchId: string; searches: SearchDto[] }) {
   const router = useRouter();
   const [job, setJob] = useState<{ id: string; status: string; errorMessage?: string | null } | null>(null);
   const [error, setError] = useState('');
@@ -21,7 +21,8 @@ export function UrlImportForm() {
         const next = await requestApi<ImportJobDto>(`/api/imports/${job.id}`);
         if (stopped) return;
         setJob(next);
-        if (next.status === 'READY' && next.propertyId) router.push(`/properties/${next.propertyId}/review`);
+        if (next.status === 'READY' && next.propertyId)
+          router.push(`/searches/${searchId}/properties/${next.propertyId}/review`);
         else if (next.status !== 'FAILED') timer = setTimeout(poll, 1500);
       } catch (cause) {
         if (!stopped) {
@@ -45,12 +46,15 @@ export function UrlImportForm() {
         setError('');
         const form = new FormData(event.currentTarget);
         try {
+          const searchIds = form.getAll('searchIds').map(String);
           const result = await requestApi<ImportStartDto>('/api/imports', {
             method: 'POST',
-            body: JSON.stringify({ url: String(form.get('url') || '') } satisfies ImportRequest)
+            body: JSON.stringify({ url: String(form.get('url') || ''), searchIds } satisfies ImportRequest)
           });
           if ('existing' in result)
-            router.push(`/properties/${result.propertyId}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`);
+            router.push(
+              `/searches/${searchId}/properties/${result.propertyId}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`
+            );
           else {
             setJob({ id: result.importId, status: result.status });
             setPolling(true);
@@ -79,6 +83,25 @@ export function UrlImportForm() {
         Validaremos que la URL sea una publicación de propiedad. Si pasa la validación, crearemos un borrador para que
         lo revises.
       </p>
+      <fieldset className="search-targets">
+        <legend>También agregar a</legend>
+        {searches.map((search) => (
+          <label key={search.id}>
+            <input
+              name="searchIds"
+              value={search.id}
+              type="checkbox"
+              defaultChecked={search.id === searchId}
+              disabled={search.id === searchId}
+            />
+            {search.id === searchId ? <input name="searchIds" value={search.id} type="hidden" /> : null}
+            <span>
+              {search.name}
+              {search.id === searchId ? ' · actual' : ''}
+            </span>
+          </label>
+        ))}
+      </fieldset>
       {error && (
         <p className="form-error" role="alert">
           {error}

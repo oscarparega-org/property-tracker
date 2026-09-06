@@ -15,15 +15,17 @@ const statuses = [
 ] as const;
 
 export function PropertyDecisionPanel({ property }: { property: PropertyDto }) {
+  const searchName = property.memberships.find((item) => item.searchId === property.searchId)?.name;
   return (
     <aside className="decision-panel">
       <div className="decision-heading">
-        <span>Espacio personal</span>
+        <span>{searchName ? `Decisión en ${searchName}` : 'Espacio personal'}</span>
         <h2>Mi decisión</h2>
         <p>Actualiza tu evaluación sin salir de esta página.</p>
       </div>
       <ActionForm action={saveDecisionAction} className="decision-form">
         <input type="hidden" name="id" value={property.id} />
+        <input type="hidden" name="searchId" value={property.searchId ?? ''} />
         <label>
           <span>Estado</span>
           <select name="decisionStatus" defaultValue={property.decisionStatus}>

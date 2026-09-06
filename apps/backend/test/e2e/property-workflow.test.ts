@@ -77,6 +77,18 @@ function editor(property: PropertyDto, publicationStatus = 'PUBLISHED') {
   return form;
 }
 
+async function createStandardJob(ownerId: string, targetUrl: string) {
+  const search = await db.search.findFirstOrThrow({ where: { ownerId, isPrimary: true } });
+  return db.propertyImport.create({
+    data: {
+      ownerId,
+      url: targetUrl,
+      canonicalUrl: targetUrl,
+      targets: { create: { searchId: search.id } }
+    }
+  });
+}
+
 beforeAll(async () => {
   for (const label of ['a', 'b']) {
     const email = `migration-${label}-${randomUUID()}@example.com`;
@@ -205,6 +217,84 @@ describe('clean account → URL → private draft → publication', () => {
       ).status
     ).toBe(400);
   });
+  it('shares property facts while isolating lifecycle state across searches', async () => {
+    const initialSearches = await (await request('/api/searches')).json();
+    expect(initialSearches).toHaveLength(1);
+    const primaryId = initialSearches[0].id as string;
+    const created = await request('/api/searches', cookieA, 'POST', JSON.stringify({ name: 'Condesa' }));
+    expect(created.status, await created.clone().text()).toBe(201);
+    const secondary = await created.json();
+
+    const linked = await request(
+      `/api/properties/${propertyId}/searches`,
+      cookieA,
+      'PUT',
+      JSON.stringify({ searchIds: [primaryId, secondary.id] })
+    );
+    expect(linked.status, await linked.clone().text()).toBe(200);
+    const rejected = await request(
+      `/api/searches/${secondary.id}/properties/${propertyId}/status`,
+      cookieA,
+      'PATCH',
+      JSON.stringify({ decisionStatus: 'REJECTED' })
+    );
+    expect(rejected.status).toBe(200);
+    expect(await rejected.json()).toMatchObject({ decisionStatus: 'REJECTED' });
+    expect(await (await request(`/api/searches/${primaryId}/properties/${propertyId}`)).json()).toMatchObject({
+      decisionStatus: 'VISITED'
+    });
+
+    const primaryProperty = await (await request(`/api/searches/${primaryId}/properties/${propertyId}`)).json();
+    const sharedEdit = editor(primaryProperty);
+    sharedEdit.set('title', 'Casa compartida');
+    expect((await request(`/api/properties/${propertyId}`, cookieA, 'PUT', sharedEdit)).status).toBe(200);
+    expect(await (await request(`/api/searches/${secondary.id}/properties/${propertyId}`)).json()).toMatchObject({
+      title: 'Casa compartida',
+      decisionStatus: 'REJECTED'
+    });
+
+    const impact = await (await request(`/api/searches/${secondary.id}/deletion-impact`)).json();
+    expect(impact).toMatchObject({ membershipCount: 1, orphanCount: 0 });
+    expect(
+      (
+        await request(
+          `/api/searches/${secondary.id}`,
+          cookieA,
+          'DELETE',
+          JSON.stringify({ confirmationName: 'Condesa', expectedMembershipCount: 1, expectedOrphanCount: 0 })
+        )
+      ).status
+    ).toBe(200);
+    expect((await request(`/api/searches/${primaryId}/properties/${propertyId}`)).status).toBe(200);
+  });
+
+  it('enforces three searches per owner and isolates search access', async () => {
+    const responses = await Promise.all(
+      ['Sur', 'Poniente', 'Norte'].map((name) => request('/api/searches', cookieA, 'POST', JSON.stringify({ name })))
+    );
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 201, 409]);
+    const createdSearches = await Promise.all(
+      responses.filter((response) => response.status === 201).map((response) => response.json())
+    );
+    const a = createdSearches[0]!;
+    const b = createdSearches[1]!;
+    expect((await request(`/api/searches/${a.id}/properties`, cookieB)).status).toBe(404);
+    const foreignSearch = await db.search.findFirstOrThrow({ where: { ownerId: ownerB, isPrimary: true } });
+    await expect(
+      db.searchProperty.create({ data: { ownerId: ownerA, searchId: foreignSearch.id, propertyId } })
+    ).rejects.toMatchObject({ code: 'P2003' });
+    for (const search of [a, b])
+      expect(
+        (
+          await request(
+            `/api/searches/${search.id}`,
+            cookieA,
+            'DELETE',
+            JSON.stringify({ confirmationName: search.name, expectedMembershipCount: 0, expectedOrphanCount: 0 })
+          )
+        ).status
+      ).toBe(200);
+  });
   it('creates and edits a manual property without a source URL', async () => {
     const property = await (await request(`/api/properties/${propertyId}`)).json();
     const form = editor(property, 'DRAFT');
@@ -223,19 +313,101 @@ describe('clean account → URL → private draft → publication', () => {
     expect(saved.status).toBe(200);
     expect(await saved.json()).toMatchObject({ title: 'Captura revisada', publicationStatus: 'PUBLISHED' });
   });
-  it('does not overwrite a published property when another job resolves to its listing', async () => {
-    const job = await db.propertyImport.create({
-      data: { ownerId: ownerA, url: listingUrl, canonicalUrl: listingUrl }
+  it('fails a pending import instead of recreating a deleted destination search', async () => {
+    const created = await request('/api/searches', cookieA, 'POST', JSON.stringify({ name: 'Temporal' }));
+    expect(created.status, await created.clone().text()).toBe(201);
+    const search = await created.json();
+    const targetUrl = `https://example.com/pending/${randomUUID()}`;
+    const queued = await request(
+      '/api/imports',
+      cookieA,
+      'POST',
+      JSON.stringify({ url: targetUrl, searchIds: [search.id] })
+    );
+    expect(queued.status, await queued.clone().text()).toBe(202);
+    const job = await queued.json();
+    expect(
+      (
+        await request(
+          `/api/searches/${search.id}`,
+          cookieA,
+          'DELETE',
+          JSON.stringify({ confirmationName: search.name, expectedMembershipCount: 0, expectedOrphanCount: 0 })
+        )
+      ).status
+    ).toBe(200);
+    expect(await processImportJob(db, job.importId, extraction)).toBe(false);
+    expect(await db.propertyImport.findUniqueOrThrow({ where: { id: job.importId } })).toMatchObject({
+      status: 'FAILED',
+      errorMessage: 'La búsqueda de destino ya no existe.'
     });
+    expect(await db.search.findFirst({ where: { ownerId: ownerA, name: 'Mi búsqueda', isPrimary: false } })).toBeNull();
+  });
+  it('rejects stale search-deletion impact and supports confirmed property deletion', async () => {
+    const created = await request('/api/searches', cookieA, 'POST', JSON.stringify({ name: 'Impacto' }));
+    expect(created.status, await created.clone().text()).toBe(201);
+    const search = await created.json();
+    const staleDelete = await request(
+      `/api/searches/${search.id}`,
+      cookieA,
+      'DELETE',
+      JSON.stringify({ confirmationName: search.name, expectedMembershipCount: 1, expectedOrphanCount: 0 })
+    );
+    expect(staleDelete.status).toBe(409);
+    expect(
+      (
+        await request(
+          `/api/searches/${search.id}`,
+          cookieA,
+          'DELETE',
+          JSON.stringify({ confirmationName: search.name, expectedMembershipCount: 0, expectedOrphanCount: 0 })
+        )
+      ).status
+    ).toBe(200);
+
+    const source = await (await request(`/api/properties/${propertyId}`)).json();
+    const form = editor(source, 'DRAFT');
+    form.set('id', '');
+    form.set('sourceUrl', '');
+    form.set('sourceListingId', '');
+    form.set('sourceProvider', 'MANUAL');
+    form.set('title', 'Eliminar con confirmación');
+    const temporary = await (await request('/api/properties', cookieA, 'POST', form)).json();
+    expect(
+      (
+        await request(
+          `/api/properties/${temporary.id}`,
+          cookieA,
+          'DELETE',
+          JSON.stringify({ confirmationTitle: 'Título incorrecto' })
+        )
+      ).status
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          `/api/properties/${temporary.id}`,
+          cookieA,
+          'DELETE',
+          JSON.stringify({ confirmationTitle: 'Eliminar con confirmación' })
+        )
+      ).status
+    ).toBe(200);
+    expect(await db.property.findUnique({ where: { id: temporary.id } })).toBeNull();
+  });
+  it('does not overwrite a published property when another job resolves to its listing', async () => {
+    const job = await createStandardJob(ownerA, listingUrl);
     await processImportJob(db, job.id, extraction);
     const property = await db.property.findUniqueOrThrow({ where: { id: propertyId } });
     expect(property.publicationStatus).toBe('PUBLISHED');
-    expect(property.notes).toBe('Visitar');
+    expect(
+      await db.searchProperty.findFirst({ where: { propertyId, search: { isPrimary: true } }, select: { notes: true } })
+    ).toMatchObject({ notes: 'Visitar' });
   });
   it('rejects validation errors, duplicate manual URLs, private targets and foreign origins', async () => {
     const property = await (await request(`/api/properties/${propertyId}`)).json();
     const invalid = editor(property);
-    invalid.set('rating', '9');
+    invalid.set('latitude', '100');
     expect((await request(`/api/properties/${propertyId}`, cookieA, 'PUT', invalid)).status).toBe(400);
     const duplicate = editor(property);
     duplicate.set('id', '');
@@ -251,9 +423,7 @@ describe('clean account → URL → private draft → publication', () => {
     expect(foreign.status).toBe(403);
   });
   it('retries failed jobs and recovers interrupted jobs', async () => {
-    const job = await db.propertyImport.create({
-      data: { ownerId: ownerA, url: listingUrl, canonicalUrl: listingUrl }
-    });
+    const job = await createStandardJob(ownerA, listingUrl);
     const fail = async () => {
       throw new Error('fixture failure');
     };
@@ -362,20 +532,14 @@ describe('clean account → URL → private draft → publication', () => {
       credentials.push(options.openai?.credential);
       return extraction();
     };
-    const jobA = await db.propertyImport.create({
-      data: { ownerId: ownerA, url: `${listingUrl}?owner=a`, canonicalUrl: `${listingUrl}?owner=a` }
-    });
-    const jobB = await db.propertyImport.create({
-      data: { ownerId: ownerB, url: `${listingUrl}?owner=b`, canonicalUrl: `${listingUrl}?owner=b` }
-    });
+    const jobA = await createStandardJob(ownerA, `${listingUrl}?owner=a`);
+    const jobB = await createStandardJob(ownerB, `${listingUrl}?owner=b`);
     await processImportJob(db, jobA.id, inspect);
     await processImportJob(db, jobB.id, inspect);
     expect(credentials).toEqual(['sk-owner-a-secret', 'sk-owner-b-secret']);
 
     expect((await request('/api/settings/providers/openai/credential', cookieA, 'DELETE')).status).toBe(200);
-    const withoutCredential = await db.propertyImport.create({
-      data: { ownerId: ownerA, url: `${listingUrl}?owner=a2`, canonicalUrl: `${listingUrl}?owner=a2` }
-    });
+    const withoutCredential = await createStandardJob(ownerA, `${listingUrl}?owner=a2`);
     await processImportJob(db, withoutCredential.id, inspect);
     expect(credentials.at(-1)).toBeUndefined();
   });
@@ -458,7 +622,7 @@ describe('clean account → URL → private draft → publication', () => {
 
   it('fails a non-listing validation once and creates no property', async () => {
     const badUrl = `${listingUrl}?not-a-listing=${randomUUID()}`;
-    const job = await db.propertyImport.create({ data: { ownerId: ownerA, url: badUrl, canonicalUrl: badUrl } });
+    const job = await createStandardJob(ownerA, badUrl);
     const reject = async () => {
       throw new ListingValidationError();
     };

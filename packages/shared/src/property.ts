@@ -1,4 +1,6 @@
 export type PropertyDto = {
+  searchId: string | null;
+  memberships: { searchId: string; name: string; isPrimary: boolean }[];
   id: string;
   sourceProvider: string;
   sourceUrl: string | null;
