@@ -30,6 +30,37 @@ npm run dev
 
 In another terminal, run `npm run worker:imports`. The frontend uses port 5173 and Hono uses port 3000. Alternatively, `docker compose up --build` runs PostgreSQL, migrations, API, worker, and frontend together.
 
+### Concurrent Orca worktrees
+
+Each worktree can run an isolated development stack without port, database, or authentication-cookie collisions:
+
+```bash
+npm ci
+npm run wt:init
+npm run wt:dev
+```
+
+`wt:init` writes an ignored `.env.worktree` with a stable Compose project name, free ports, local secrets, and unique `*.localhost` frontend/API hostnames. Existing configuration is validated against the checkout path so a copied file cannot accidentally share another worktree's database. `wt:dev` starts only that worktree's PostgreSQL service in Docker, deploys the checked-in Prisma migrations, creates an idempotent demo account and property, and runs the backend, frontend, and import worker locally with hot reload. PostgreSQL stays available when the dev process stops so restarts remain fast.
+
+Sign in with `demo@property-tracker.local` and `demo-password-123`. Restarting the stack preserves edits to the demo property and recreates only missing seed records. Set `DEV_SEED_ENABLED=false` in `.env.worktree` to opt out, or run `npm run wt:seed` to restore missing seed records manually.
+
+Inspect or stop the current stack with:
+
+```bash
+npm run wt:status
+npm run wt:down
+```
+
+To remove a completed worktree with no per-worktree resources left behind, run the following from a different checkout:
+
+```bash
+npm run wt:remove -- /absolute/path/to/worktree
+```
+
+The removal command refuses dirty worktrees by default. Passing `--force` explicitly discards uncommitted changes. If `.env.worktree` has already been deleted, cleanup derives the Compose project from the checkout path so its containers and volume are still removed. Shared Docker images, Docker build cache, and the npm download cache are retained because they make subsequent worktrees faster.
+
+The committed `orca.yaml` runs `npm ci && npm run wt:init` when Orca creates a worktree and runs `npm run wt:down` before Orca archives or removes it. In Orca repository settings, select **orca.yaml only**, **Run by default**, and **Wait for setup to complete before starting agent**; leave the local Setup Script and Archive Script fields blank. Configure a default app terminal to run `npm run wt:dev` if every revealed worktree should launch the app automatically. Create a worktree with `orca worktree create --name <name> --agent codex --prompt "<task>" --setup run --json`.
+
 ## Personal provider configuration
 
 Each authenticated user configures OpenAI and Firecrawl from **Configuración → Integraciones**. Provider credentials are validated before saving, encrypted at rest, never returned by the API, and used only for jobs owned by that account. Users can independently enable each provider, choose an approved OpenAI model, and set monthly operation limits.

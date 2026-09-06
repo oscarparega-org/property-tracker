@@ -1,0 +1,7 @@
+scripts:
+  setup: |
+    set -e
+    npm ci
+    npm run wt:init
+  archive: |
+    npm run wt:down
