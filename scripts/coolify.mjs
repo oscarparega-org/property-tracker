@@ -99,10 +99,6 @@ function exactlyOne(items, predicate, kind) {
 export async function reconcile(client, config) {
   const projects = await client.request('/projects');
   let project = exactlyOne(projects, (item) => item.name === config.projectName, 'project');
-  if (project && project.description !== config.projectDescription)
-    throw new Error(
-      `Coolify project "${config.projectName}" exists but is not managed by repository ${config.repositoryId}`
-    );
   if (!project) {
     const created = await client.request('/projects', {
       method: 'POST',
