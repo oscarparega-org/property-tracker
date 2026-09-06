@@ -11,7 +11,8 @@ const environment = {
   COOLIFY_SERVER_UUID: 'server-1',
   DEPLOY_BASE_DOMAIN: 'example.test',
   COOLIFY_WRITE_TOKEN: 'write-token',
-  COOLIFY_DEPLOY_TOKEN: 'deploy-token'
+  COOLIFY_DEPLOY_TOKEN: 'deploy-token',
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64')
 };
 
 test('derives deterministic development resource names', () => {
@@ -31,6 +32,13 @@ test('rejects repository names that cannot be DNS labels', () => {
 test('rejects repository names that make the API DNS label too long', () => {
   const repo = 'a'.repeat(56);
   assert.throws(() => buildDeploymentConfig({ ...environment, GITHUB_REPOSITORY: `example/${repo}` }), /too long/);
+});
+
+test('rejects a provider credential key that is not canonical base64 encoding at least 32 bytes', () => {
+  assert.throws(
+    () => buildDeploymentConfig({ ...environment, PROVIDER_CREDENTIAL_ENCRYPTION_KEY: 'too-short' }),
+    /canonical base64 encoding at least 32 bytes/
+  );
 });
 
 test('does not leak token values in HTTP errors', async () => {
@@ -67,6 +75,15 @@ test('reuses existing resources during reconciliation', async () => {
     is_buildtime: true,
     is_runtime: true,
     is_preview: false
+  });
+  const providerCredentialEncryptionKey = environmentUpdate[2].data.find(({ key }) => key === 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY');
+  assert.deepEqual(providerCredentialEncryptionKey, {
+    key: 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY',
+    value: config.providerCredentialEncryptionKey,
+    is_buildtime: true,
+    is_runtime: true,
+    is_preview: false,
+    is_literal: true
   });
 });
 

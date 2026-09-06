@@ -44,7 +44,7 @@ The deployment uses these server-side variables:
 | `OPENAI_IMPORT_LIMIT_MONTHLY` | Global safety ceiling; default 100 AI request reservations per UTC month |
 | `TRUST_PROXY` | Defaults to false; enable only if the proxy replaces untrusted forwarded headers |
 
-Coolify generates the encryption secret through `SERVICE_BASE64_64_PROVIDER_CREDENTIAL`. For non-Compose development, generate one with `openssl rand -base64 32` and keep it out of source control. The key must remain stable and backed up; losing it requires users to enter their provider credentials again.
+Production reads the encryption key from the `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` secret in the GitHub `dev` environment and the deployment controller writes it to Coolify. Generate it with `openssl rand -base64 32` and keep it out of source control. The key must remain stable and backed up; losing or rotating it requires users to enter their provider credentials again.
 
 New URL imports first make a safe, size-limited HTTP GET and extract HTML, JSON-LD, Open Graph, and embedded metadata. A deterministic confidence gate accepts clear property listings and rejects pages with no property evidence. Borderline pages are rejected when OpenAI is unavailable; when it is enabled, one grounded model response validates the page and completes only supported fields. Firecrawl is never automatic: an existing property's **Mejorar con Firecrawl + IA** action appears only when both providers are active, produces a preview, and fills empty fields plus new images/features without overwriting user-entered values or decisions. User and global budgets reserve operations before requests, including failures and retries, so they are not billing reconciliation.
 
@@ -66,9 +66,9 @@ All property, import, and provider-settings routes require a session and return 
 
 GitHub Actions remains the only deployment controller: quality checks and container builds precede deployment of the exact commit SHA. Coolify auto-deploy stays disabled. Naming and public URL derivation remain in `scripts/coolify.mjs`; deployment addresses, IDs, and tokens are configuration, not source constants.
 
-Organization/repository Actions variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UUID`, `DEPLOY_BASE_DOMAIN`. Secrets: `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`. The existing provisioner manages isolated repository resources and frontend/API domains.
+Organization/repository Actions variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UUID`, `DEPLOY_BASE_DOMAIN`. Secrets: `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`, plus `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` in the GitHub `dev` environment. The existing provisioner manages isolated repository resources and frontend/API domains.
 
-The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials, the Better Auth secret, and the provider-credential encryption secret. User provider tokens never enter the frontend build or deployment environment.
+The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials and the Better Auth secret; the deployment controller injects the stable provider-credential encryption key from GitHub's `dev` environment. User provider tokens never enter the frontend build or deployment environment.
 
 Back up the PostgreSQL volume before deploying migrations. Roll back application code through the same exact-SHA pipeline; these additive property tables can remain when rolling back to the auth-only application. Do not reset or drop the database as a deployment step.
 
