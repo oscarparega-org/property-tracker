@@ -3,9 +3,11 @@ import { inmuebles24Provider } from './inmuebles24.js';
 import { mercadoLibreProvider } from './mercado-libre.js';
 import { pulppoProvider } from './pulppo.js';
 import { remaxMexicoProvider } from './remax-mx.js';
+import { tecnocasaMexicoProvider } from './tecnocasa-mx.js';
 import type { ImportProvider } from './types.js';
 
 const providers: readonly ImportProvider[] = [
+  tecnocasaMexicoProvider,
   remaxMexicoProvider,
   pulppoProvider,
   mercadoLibreProvider,
