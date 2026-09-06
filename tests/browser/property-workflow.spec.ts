@@ -64,7 +64,7 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await expect(page.getByLabel('Mis notas')).toHaveValue('Agendar visita el sábado');
   await expect(page.getByLabel('Marcar como favorita')).toBeChecked();
   await page.getByRole('link', { name: 'Volver al mapa y la lista' }).click();
-  await expect(page.locator('.property-card')).toHaveCount(1);
+  await expect(page.locator('.kanban-card')).toHaveCount(1);
   await page.screenshot({ path: 'test-results/workspace-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/workspace-mobile.png', fullPage: true });
