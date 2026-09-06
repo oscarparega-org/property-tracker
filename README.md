@@ -1,4 +1,4 @@
-# Casa Clara
+# House Tracker
 
 Private property tracking with a Spanish Next.js interface, a Hono API, Better Auth, Prisma, PostgreSQL, and a separate URL-import worker.
 
@@ -86,7 +86,7 @@ docker compose -f docker-compose.yml build
 Database/browser tests require a separate disposable database whose name ends in `_test`:
 
 ```bash
-export TEST_DATABASE_URL=postgresql://test:test@localhost:55439/casa_clara_test
+export TEST_DATABASE_URL=postgresql://test:test@localhost:55439/house_tracker_test
 DATABASE_URL="$TEST_DATABASE_URL" npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
 npm run test:e2e
 npx playwright install chromium

@@ -21,6 +21,7 @@ test('derives deterministic development resource names', () => {
   assert.equal(config.networkName, 'repo-12345-dev');
   assert.equal(config.frontendUrl, 'https://house-tracking-dev.example.test');
   assert.equal(config.apiPublicUrl, 'https://house-tracking-api-dev.example.test');
+  assert.equal(config.displayName, 'House Tracker');
 });
 
 test('rejects repository names that cannot be DNS labels', () => {

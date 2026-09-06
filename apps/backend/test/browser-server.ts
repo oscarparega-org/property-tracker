@@ -10,7 +10,7 @@ if (!process.env.DATABASE_URL || !new URL(process.env.DATABASE_URL).pathname.end
 const fetchOriginal = globalThis.fetch;
 globalThis.fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input);
-  if (url === 'https://example.com/casa-clara-fixture') return new Response(`<!doctype html><html><head><meta property="og:title" content="Casa de prueba"><script type="application/ld+json">{"@type":"House","name":"Casa de prueba","offers":{"price":2500000,"priceCurrency":"MXN"},"geo":{"latitude":19.4,"longitude":-99.1}}</script></head><body>Casa de prueba en venta. Una casa luminosa con espacios amplios para toda la familia, ubicada en una colonia tranquila de la ciudad. Tiene 3 recámaras, 2 baños y 150 m² de construcción. Contacta al anunciante para conocerla.</body></html>`, { headers: { 'content-type': 'text/html' } });
+  if (url === 'https://example.com/house-tracker-fixture') return new Response(`<!doctype html><html><head><meta property="og:title" content="Casa de prueba"><script type="application/ld+json">{"@type":"House","name":"Casa de prueba","offers":{"price":2500000,"priceCurrency":"MXN"},"geo":{"latitude":19.4,"longitude":-99.1}}</script></head><body>Casa de prueba en venta. Una casa luminosa con espacios amplios para toda la familia, ubicada en una colonia tranquila de la ciudad. Tiene 3 recámaras, 2 baños y 150 m² de construcción. Contacta al anunciante para conocerla.</body></html>`, { headers: { 'content-type': 'text/html' } });
   if (url.startsWith('https://api.openai.com/v1/models/')) return Response.json({ id: url.split('/').at(-1), object: 'model' });
   if (url === 'https://api.firecrawl.dev/v2/team/credit-usage') return Response.json({ success: true, data: { remainingCredits: 100 } });
   if (url === 'https://api.firecrawl.dev/v2/scrape') return Response.json({ success: true, data: {
@@ -19,7 +19,7 @@ globalThis.fetch = async (input, init) => {
   } });
   if (url === 'https://api.openai.com/v1/responses') {
     const extracted = extractDeterministic({
-      url: 'https://example.com/casa-clara-fixture', provider: 'example.com', strategy: 'firecrawl',
+      url: 'https://example.com/house-tracker-fixture', provider: 'example.com', strategy: 'firecrawl',
       html: '<meta property="og:title" content="Casa de prueba"><meta property="og:image" content="https://example.com/enhanced-house.jpg">',
       text: 'Casa de prueba en venta, 3 recámaras, 2 baños y 150 m² de construcción.', metadata: {},
     }).input;
