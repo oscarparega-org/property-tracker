@@ -33,7 +33,11 @@ export function Dashboard() {
       <p className="text-sm font-medium uppercase tracking-wide text-blue-700">Protected page</p>
       <h1 className="mt-3 text-3xl font-semibold">Hello, {session.user.name}</h1>
       <p className="mt-3 text-slate-600">Your browser has a valid Better Auth session.</p>
-      {data ? <pre className="mt-6 overflow-auto rounded-xl bg-slate-950 p-4 text-sm text-slate-100">{JSON.stringify(data, null, 2)}</pre> : null}
+      {data ? (
+        <pre className="mt-6 overflow-auto rounded-xl bg-slate-950 p-4 text-sm text-slate-100">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      ) : null}
       {error ? <p className="mt-5 text-red-700">Protected API check failed: {error}</p> : null}
     </section>
   );

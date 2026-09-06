@@ -1,0 +1,9 @@
+node_modules/
+.next/
+dist/
+.turbo/
+coverage/
+apps/frontend/public/maplibre/
+apps/frontend/next-env.d.ts
+test-results/
+playwright-report/

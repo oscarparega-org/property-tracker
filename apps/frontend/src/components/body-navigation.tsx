@@ -1,7 +1,15 @@
 import Link from 'next/link';
 import { MaterialIcon } from '@/components/material-icon';
 
-export function BodyNavigation({ current, backLabel = 'Volver a propiedades', backHref = '/' }: { current: string; backLabel?: string; backHref?: string }) {
+export function BodyNavigation({
+  current,
+  backLabel = 'Volver a propiedades',
+  backHref = '/'
+}: {
+  current: string;
+  backLabel?: string;
+  backHref?: string;
+}) {
   return (
     <div className="body-navigation">
       <nav aria-label="Migas de pan">
@@ -9,7 +17,9 @@ export function BodyNavigation({ current, backLabel = 'Volver a propiedades', ba
         <MaterialIcon name="chevronRight" />
         <span aria-current="page">{current}</span>
       </nav>
-      <Link href={backHref} className="body-back"><MaterialIcon name="arrowBack" /> {backLabel}</Link>
+      <Link href={backHref} className="body-back">
+        <MaterialIcon name="arrowBack" /> {backLabel}
+      </Link>
     </div>
   );
 }

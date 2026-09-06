@@ -16,12 +16,15 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
   const environment = loadEnvironment();
   const app = new Hono<{ Variables: AppVariables }>();
 
-  app.use('*', cors({
-    origin: (origin) => environment.trustedOrigins.includes(origin) ? origin : environment.frontendUrl,
-    allowHeaders: ['Content-Type', 'Authorization'],
-    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    credentials: true
-  }));
+  app.use(
+    '*',
+    cors({
+      origin: (origin) => (environment.trustedOrigins.includes(origin) ? origin : environment.frontendUrl),
+      allowHeaders: ['Content-Type', 'Authorization'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      credentials: true
+    })
+  );
 
   app.all('/api/auth/*', (context) => auth.handler(context.req.raw));
 
@@ -29,7 +32,8 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
   app.use('/api/*', async (context, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(context.req.method)) {
       const origin = context.req.header('Origin');
-      if (origin && !environment.trustedOrigins.includes(origin)) throw new HTTPException(403, { message: 'Origen no permitido.' });
+      if (origin && !environment.trustedOrigins.includes(origin))
+        throw new HTTPException(403, { message: 'Origen no permitido.' });
       if (!origin && context.req.header('Sec-Fetch-Site') === 'cross-site') throw new HTTPException(403);
     }
     const session = await auth.api.getSession({ headers: context.req.raw.headers });

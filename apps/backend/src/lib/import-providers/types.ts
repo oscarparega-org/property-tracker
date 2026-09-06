@@ -1,8 +1,11 @@
-import type { ExtractionArtifact, DirectExtraction } from "../import-extraction.js";
+import type { ExtractionArtifact, DirectExtraction } from '../import-extraction.js';
 
 export type ProviderContext = {
   fetchHtml: (url: string) => Promise<{ url: string; html: string }>;
-  fetchJson: (url: string, options?: { method?: "GET" | "POST"; referer?: string }) => Promise<{ url: string; data: unknown }>;
+  fetchJson: (
+    url: string,
+    options?: { method?: 'GET' | 'POST'; referer?: string }
+  ) => Promise<{ url: string; data: unknown }>;
 };
 
 export type ImportProvider = {

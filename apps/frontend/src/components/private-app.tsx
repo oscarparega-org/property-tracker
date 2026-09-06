@@ -27,25 +27,45 @@ export function PrivateApp({ children }: { children: ReactNode }) {
     <div className="authenticated-shell">
       <header className="app-header">
         <Link href="/" className="app-brand" aria-label={`${appName}, propiedades`}>
-          <span className="brand-mark"><MaterialIcon name="home" /></span>
+          <span className="brand-mark">
+            <MaterialIcon name="home" />
+          </span>
           <strong>{appName}</strong>
         </Link>
         <details className="account-menu" ref={accountMenu}>
           <summary aria-label={`Abrir menú de ${displayName}`}>
-            <span className="account-avatar" aria-hidden="true">{initial}</span>
-            <span className="account-identity"><strong>{displayName}</strong><small>{session.user.email}</small></span>
+            <span className="account-avatar" aria-hidden="true">
+              {initial}
+            </span>
+            <span className="account-identity">
+              <strong>{displayName}</strong>
+              <small>{session.user.email}</small>
+            </span>
             <MaterialIcon name="expandMore" />
           </summary>
           <div className="account-popover">
-            <div className="account-popover-heading"><strong>{displayName}</strong><span>{session.user.email}</span></div>
-            <Link href="/settings/integrations"><MaterialIcon name="settings" /> Configuración e integraciones</Link>
-            <button type="button" onClick={async () => { await authClient.signOut(); router.replace('/sign-in'); }}>
+            <div className="account-popover-heading">
+              <strong>{displayName}</strong>
+              <span>{session.user.email}</span>
+            </div>
+            <Link href="/settings/integrations">
+              <MaterialIcon name="settings" /> Configuración e integraciones
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                await authClient.signOut();
+                router.replace('/sign-in');
+              }}
+            >
               <MaterialIcon name="logout" /> Cerrar sesión
             </button>
           </div>
         </details>
       </header>
-      <div className="authenticated-content" key={session.user.id}>{children}</div>
+      <div className="authenticated-content" key={session.user.id}>
+        {children}
+      </div>
     </div>
   );
 }

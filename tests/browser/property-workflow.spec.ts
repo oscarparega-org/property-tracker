@@ -11,7 +11,7 @@ test.afterAll(async () => {
 
 test('fresh signup, URL extraction, draft review, publication and personal decision', async ({ page }) => {
   const errors: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', (error) => errors.push(error.message));
   const email = `browser-${randomUUID()}@example.com`;
   emails.push(email);
   await page.goto('/sign-up');
@@ -26,7 +26,9 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await page.getByRole('link', { name: 'Configuración e integraciones', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Integraciones personales' })).toBeVisible();
   await expect(page.locator('details.account-menu')).not.toHaveAttribute('open', '');
-  const openAiCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'OpenAI', exact: true }) });
+  const openAiCard = page
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: 'OpenAI', exact: true }) });
   await openAiCard.getByLabel('API key de OpenAI').fill('sk-browser-owner-secret');
   await openAiCard.getByLabel('Usar OpenAI en mis importaciones').check();
   await openAiCard.getByRole('button', { name: 'Guardar y validar' }).click();
@@ -34,7 +36,9 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await expect(openAiCard.getByText(/••••cret/)).toBeVisible();
   await openAiCard.getByRole('button', { name: 'Probar conexión' }).click();
   await expect(openAiCard.getByText('La conexión es válida.')).toBeVisible();
-  const firecrawlCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Firecrawl', exact: true }) });
+  const firecrawlCard = page
+    .getByRole('article')
+    .filter({ has: page.getByRole('heading', { name: 'Firecrawl', exact: true }) });
   await firecrawlCard.getByLabel('API key de Firecrawl').fill('fc-browser-owner-secret');
   await firecrawlCard.getByLabel('Usar Firecrawl en mis importaciones').check();
   await firecrawlCard.getByRole('button', { name: 'Guardar y validar' }).click();

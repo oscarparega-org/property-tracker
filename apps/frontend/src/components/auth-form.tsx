@@ -21,35 +21,60 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
     const name = String(form.get('name') || '').trim();
 
     try {
-    const result = isSignUp
-      ? await authClient.signUp.email({ name, email, password })
-      : await authClient.signIn.email({ email, password });
+      const result = isSignUp
+        ? await authClient.signUp.email({ name, email, password })
+        : await authClient.signIn.email({ email, password });
 
-    if (result.error) {
-      setError(result.error.message || 'No fue posible iniciar sesión.');
-      return;
-    }
-    router.push('/');
-    router.refresh();
+      if (result.error) {
+        setError(result.error.message || 'No fue posible iniciar sesión.');
+        return;
+      }
+      router.push('/');
+      router.refresh();
     } catch {
       setError('No pudimos conectar con el servidor. Intenta de nuevo.');
-    } finally { setPending(false); }
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
-    <form className="mx-auto mt-16 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm" onSubmit={submit}>
-      <h1 className="text-3xl font-semibold tracking-tight">{isSignUp ? 'Crear una cuenta' : 'Bienvenido a House Tracker'}</h1>
-      <p className="mt-2 text-sm text-slate-600">{isSignUp ? 'Tu colección privada de propiedades empieza aquí.' : 'Inicia sesión con tu correo y contraseña.'}</p>
+    <form
+      className="mx-auto mt-16 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
+      onSubmit={submit}
+    >
+      <h1 className="text-3xl font-semibold tracking-tight">
+        {isSignUp ? 'Crear una cuenta' : 'Bienvenido a House Tracker'}
+      </h1>
+      <p className="mt-2 text-sm text-slate-600">
+        {isSignUp ? 'Tu colección privada de propiedades empieza aquí.' : 'Inicia sesión con tu correo y contraseña.'}
+      </p>
       {isSignUp ? <Field autoComplete="name" label="Nombre" name="name" type="text" /> : null}
       <Field autoComplete="email" label="Correo" name="email" type="email" />
-      <Field autoComplete={isSignUp ? 'new-password' : 'current-password'} label="Contraseña" minLength={8} name="password" type="password" />
-      {error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p> : null}
-      <button className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60" disabled={pending} type="submit">
+      <Field
+        autoComplete={isSignUp ? 'new-password' : 'current-password'}
+        label="Contraseña"
+        minLength={8}
+        name="password"
+        type="password"
+      />
+      {error ? (
+        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <button
+        className="mt-6 w-full rounded-lg bg-slate-950 px-4 py-3 font-semibold text-white hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
+        disabled={pending}
+        type="submit"
+      >
         {pending ? 'Espera un momento…' : isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
       </button>
       <p className="mt-5 text-center text-sm text-slate-600">
         {isSignUp ? '¿Ya tienes cuenta?' : '¿Necesitas una cuenta?'}{' '}
-        <Link className="font-semibold text-slate-950 underline" href={isSignUp ? '/sign-in' : '/sign-up'}>{isSignUp ? 'Iniciar sesión' : 'Crear cuenta'}</Link>
+        <Link className="font-semibold text-slate-950 underline" href={isSignUp ? '/sign-in' : '/sign-up'}>
+          {isSignUp ? 'Iniciar sesión' : 'Crear cuenta'}
+        </Link>
       </p>
     </form>
   );
@@ -60,7 +85,11 @@ function Field({ label, ...props }: FieldProps) {
   return (
     <label className="mt-5 block text-sm font-medium text-slate-700">
       {label}
-      <input className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" required {...props} />
+      <input
+        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+        required
+        {...props}
+      />
     </label>
   );
 }

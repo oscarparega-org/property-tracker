@@ -36,13 +36,13 @@ Each authenticated user configures OpenAI and Firecrawl from **Configuraci√≥n ‚Ü
 
 The deployment uses these server-side variables:
 
-| Variable | Purpose |
-|---|---|
+| Variable                             | Purpose                                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` | Stable base64 secret containing at least 32 random bytes; encrypts user credentials with AES-256-GCM |
-| `OPENAI_ALLOWED_MODELS` | Comma-separated model allowlist; defaults to Luna, Terra, and Sol |
-| `FIRECRAWL_CREDIT_LIMIT_MONTHLY` | Global safety ceiling; default 500 scrape reservations per UTC month |
-| `OPENAI_IMPORT_LIMIT_MONTHLY` | Global safety ceiling; default 100 AI request reservations per UTC month |
-| `TRUST_PROXY` | Defaults to false; enable only if the proxy replaces untrusted forwarded headers |
+| `OPENAI_ALLOWED_MODELS`              | Comma-separated model allowlist; defaults to Luna, Terra, and Sol                                    |
+| `FIRECRAWL_CREDIT_LIMIT_MONTHLY`     | Global safety ceiling; default 500 scrape reservations per UTC month                                 |
+| `OPENAI_IMPORT_LIMIT_MONTHLY`        | Global safety ceiling; default 100 AI request reservations per UTC month                             |
+| `TRUST_PROXY`                        | Defaults to false; enable only if the proxy replaces untrusted forwarded headers                     |
 
 Production reads the encryption key from the `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` secret in the GitHub `dev` environment and the deployment controller writes it to Coolify. Generate it with `openssl rand -base64 32` and keep it out of source control. The key must remain stable and backed up; losing or rotating it requires users to enter their provider credentials again.
 
