@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HealthResponse } from './index.js';
+import { decisionStatusRequestSchema, type HealthResponse } from './index.js';
 
 describe('shared contracts', () => {
   it('represents a healthy response', () => {
@@ -9,5 +9,10 @@ describe('shared contracts', () => {
       timestamp: new Date(0).toISOString()
     };
     expect(value.status).toBe('ok');
+  });
+
+  it('validates board status moves', () => {
+    expect(decisionStatusRequestSchema.parse({ decisionStatus: 'VISITED' })).toEqual({ decisionStatus: 'VISITED' });
+    expect(() => decisionStatusRequestSchema.parse({ decisionStatus: 'UNKNOWN' })).toThrow();
   });
 });

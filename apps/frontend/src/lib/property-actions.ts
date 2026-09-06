@@ -1,5 +1,5 @@
 'use client';
-import type { PropertyDto, FavoriteRequest, ArchiveRequest } from '@template/shared';
+import type { PropertyDto, FavoriteRequest, ArchiveRequest, DecisionStatusRequest } from '@template/shared';
 import { requestApi } from './request-api';
 
 function normalizeVisit(form: FormData) {
@@ -21,4 +21,10 @@ export async function toggleFavoriteAction(id: string, isFavorite: boolean) {
 }
 export async function setArchivedAction(id: string, archived: boolean) {
   return requestApi<PropertyDto>(`/api/properties/${encodeURIComponent(id)}/archive`, { method: 'PATCH', body: JSON.stringify({ archived } satisfies ArchiveRequest) });
+}
+export async function setDecisionStatusAction(id: string, decisionStatus: PropertyDto['decisionStatus']) {
+  return requestApi<PropertyDto>(`/api/properties/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ decisionStatus } satisfies DecisionStatusRequest),
+  });
 }

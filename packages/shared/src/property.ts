@@ -45,7 +45,7 @@ export type PropertyDto = {
   agentEmail: string | null;
   officeName: string | null;
   sourceOfficeId: string | null;
-  decisionStatus: "NEW" | "INTERESTED" | "CONTACTED" | "VISIT_SCHEDULED" | "VISITED" | "OFFER_MADE" | "REJECTED" | "PURCHASED";
+  decisionStatus: "NEW" | "CONTACTED" | "VISIT_SCHEDULED" | "VISITED" | "OFFER_MADE" | "REJECTED" | "PURCHASED";
   isFavorite: boolean;
   rating: number | null;
   notes: string | null;

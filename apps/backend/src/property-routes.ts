@@ -2,7 +2,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
-import { canonicalizeListingUrl, decisionSchema, importRequestSchema, favoriteRequestSchema, archiveRequestSchema, propertyInputSchema } from '@template/shared';
+import { canonicalizeListingUrl, decisionSchema, decisionStatusRequestSchema, importRequestSchema, favoriteRequestSchema, archiveRequestSchema, propertyInputSchema } from '@template/shared';
 import type { AppVariables } from './types.js';
 import { applyEnhancement, buildEnhancementPreview, getProperty, listDraftProperties, listProperties } from './lib/property-store.js';
 import { saveProperty } from './lib/property-editor.js';
@@ -93,6 +93,13 @@ export function propertyRoutes(db: PrismaClient) {
     const { id: _id, ...data } = decisionSchema.parse({ ...Object.fromEntries(form), id });
     void _id;
     await db.property.update({ where: { id, ownerId: owner(c) }, data: { ...data, isFavorite: form.get('isFavorite') === 'on', archivedAt: form.get('archived') === 'on' ? new Date() : null } });
+    return c.json(await owned(id, owner(c)));
+  });
+  routes.patch('/properties/:id/status', async c => {
+    const id = c.req.param('id');
+    await owned(id, owner(c));
+    const data = decisionStatusRequestSchema.parse(await c.req.json());
+    await db.property.update({ where: { id, ownerId: owner(c) }, data });
     return c.json(await owned(id, owner(c)));
   });
   routes.patch('/properties/:id/favorite', async c => {

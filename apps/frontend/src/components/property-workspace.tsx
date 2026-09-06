@@ -2,19 +2,19 @@
 import { ActionForm } from "@/components/action-form";
 
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { toggleFavoriteAction } from "@/lib/property-actions";
+import { setDecisionStatusAction, toggleFavoriteAction } from "@/lib/property-actions";
 import { MaterialIcon } from "@/components/material-icon";
 import type { PropertyDto } from "@template/shared";
 import { PropertyEditor } from "@/components/property-editor";
 import { PropertyMap } from "@/components/property-map";
+import { PropertyBoard } from "@/components/property-board";
 
-type ViewMode = "split" | "list" | "map";
+type ViewMode = "board" | "split" | "list" | "map";
 
 const statusLabels: Record<PropertyDto["decisionStatus"], string> = {
   NEW: "Nueva",
-  INTERESTED: "Me interesa",
   CONTACTED: "Contactada",
   VISIT_SCHEDULED: "Visita agendada",
   VISITED: "Visitada",
@@ -106,7 +106,10 @@ function PropertyCard({
 }
 
 export function PropertyWorkspace({ initialProperties }: { initialProperties: PropertyDto[] }) {
-  const [view, setView] = useState<ViewMode>("split");
+  const [view, setView] = useState<ViewMode>("board");
+  const [properties, setProperties] = useState(initialProperties);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState("");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [type, setType] = useState("ALL");
@@ -117,9 +120,11 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
   const [selectedId, setSelectedId] = useState<string | null>(initialProperties.find((item) => !item.archivedAt)?.id ?? null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  useEffect(() => setProperties(initialProperties), [initialProperties]);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase("es-MX");
-    return initialProperties.filter((property) => {
+    return properties.filter((property) => {
       if (!showArchived && property.archivedAt) return false;
       if (status !== "ALL" && property.decisionStatus !== status) return false;
       if (type !== "ALL" && property.propertyType !== type) return false;
@@ -131,9 +136,26 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
         .filter(Boolean)
         .some((value) => value!.toLocaleLowerCase("es-MX").includes(needle));
     });
-  }, [favoritesOnly, initialProperties, maxPrice, minBedrooms, query, showArchived, status, type]);
+  }, [favoritesOnly, properties, maxPrice, minBedrooms, query, showArchived, status, type]);
 
-  const editing = initialProperties.find((property) => property.id === editingId) ?? null;
+  const editing = properties.find((property) => property.id === editingId) ?? null;
+
+  async function moveProperty(id: string, nextStatus: PropertyDto["decisionStatus"]) {
+    const previous = properties.find(property => property.id === id);
+    if (!previous || previous.decisionStatus === nextStatus || movingId) return;
+    setMoveError("");
+    setMovingId(id);
+    setProperties(current => current.map(property => property.id === id ? { ...property, decisionStatus: nextStatus } : property));
+    try {
+      const saved = await setDecisionStatusAction(id, nextStatus);
+      setProperties(current => current.map(property => property.id === id ? saved : property));
+    } catch (cause) {
+      setProperties(current => current.map(property => property.id === id ? previous : property));
+      setMoveError(cause instanceof Error ? cause.message : "No fue posible cambiar la etapa.");
+    } finally {
+      setMovingId(null);
+    }
+  }
 
   return (
     <main className="app-shell">
@@ -147,9 +169,9 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
           <small>{filtered.length === 1 ? "propiedad" : "propiedades"}</small>
         </div>
         <div className="view-switch" aria-label="Vista">
-          {(["list", "split", "map"] as const).map((mode) => (
+          {(["board", "list", "split", "map"] as const).map((mode) => (
             <button key={mode} type="button" className={view === mode ? "is-active" : ""} onClick={() => setView(mode)}>
-              {mode === "list" ? "Lista" : mode === "split" ? "Mitad" : "Mapa"}
+              {mode === "board" ? "Proceso" : mode === "list" ? "Lista" : mode === "split" ? "Mitad" : "Mapa"}
             </button>
           ))}
           <Link className="topbar-link" href="/drafts">Borradores</Link>
@@ -185,7 +207,9 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
         <label className="check-filter"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} /> Ver archivadas</label>
       </section>
 
-      <section className={`workspace view-${view}`}>
+      {moveError ? <div className="board-error" role="alert">{moveError}</div> : null}
+
+      {view === "board" ? <PropertyBoard properties={filtered} busyId={movingId} onMove={moveProperty} /> : <section className={`workspace view-${view}`}>
         <div className="list-pane">
           {filtered.length ? (
             filtered.map((property) => (
@@ -202,7 +226,7 @@ export function PropertyWorkspace({ initialProperties }: { initialProperties: Pr
             return selected ? <button type="button" className="map-selection" onClick={() => setEditingId(selected.id)}><span>{selected.neighborhood ?? typeLabels[selected.propertyType]}</span><strong>{money(selected.priceAmount, selected.priceCurrency)}</strong><small>Editar propiedad <MaterialIcon name="arrowForward" /></small></button> : null;
           })()}
         </div>
-      </section>
+      </section>}
 
       {editing && <PropertyEditor property={editing} onClose={() => setEditingId(null)} />}
     </main>
