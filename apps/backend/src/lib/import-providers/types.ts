@@ -12,6 +12,7 @@ export type ImportProvider = {
   key: string;
   name: string;
   version: string;
+  requiresRenderedFetch?: boolean;
   matches: (url: URL) => boolean;
   enrich?: (artifact: ExtractionArtifact, context: ProviderContext) => Promise<ExtractionArtifact>;
   extract?: (artifact: ExtractionArtifact) => DirectExtraction | null;

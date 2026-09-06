@@ -130,6 +130,45 @@ it('creates a high-confidence direct result without calling OpenAI', async () =>
   ]);
 });
 
+it('requires a rendered fetch for Inmuebles24 instead of retrying a blocked direct request', async () => {
+  const fetcher = vi.fn();
+  vi.stubGlobal('fetch', fetcher);
+
+  await expect(
+    extractProperty('https://www.inmuebles24.com/propiedades/clasificado/departamento-en-venta-148290981.html', {})
+  ).rejects.toThrow(/Inmuebles24 bloquea.+Configura Firecrawl/);
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it('keeps embedded payloads in the rendered Inmuebles24 fetch', async () => {
+  const html = `<script>
+    const avisoInfo = {
+      'idAviso': '148290981',
+      'postingCode': "NX-263280",
+      'pricesData': [{"operationType":{"name":"venta"},"prices":[{"isoCode":"MXN","amount":5490000}]}],
+      'location': {"name":"Nápoles","label":"ZONA","parent":{"name":"Benito Juárez","label":"CIUDAD"}},
+      'address': {"name":"Altadena 155"},
+      'propertyType': {"name":"Apartamento"},
+      'pictures': [],
+      'postingTitle': "Departamento en Nápoles"
+    };
+  </script>`;
+  const fetcher = vi.fn(async (_input: unknown, init?: RequestInit) => {
+    expect(JSON.parse(String(init?.body))).toMatchObject({ onlyMainContent: false });
+    return Response.json({ success: true, data: { rawHtml: html, markdown: 'Departamento en venta', metadata: {} } });
+  });
+  vi.stubGlobal('fetch', fetcher);
+
+  const result = await extractProperty(
+    'https://www.inmuebles24.com/propiedades/clasificado/departamento-en-venta-148290981.html',
+    { firecrawl: { credential: 'fc-key', onInvalidCredential: vi.fn() } }
+  );
+  expect(result.strategy).toBe('firecrawl');
+  expect(result.firecrawlCredits).toBe(1);
+  expect(result.input.source.provider).toBe('Inmuebles24');
+  expect(fetcher).toHaveBeenCalledOnce();
+});
+
 it('forces Firecrawl and OpenAI for a deep extraction', async () => {
   const fetcher = vi.fn(async (input: unknown) => {
     const target = String(input);

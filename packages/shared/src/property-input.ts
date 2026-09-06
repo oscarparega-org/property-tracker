@@ -89,6 +89,9 @@ export type PropertyInput = z.infer<typeof propertyInputSchema>;
 
 export function canonicalizeListingUrl(value: string) {
   const url = new URL(value);
+  if (/(^|\.)inmuebles24\.com$/i.test(url.hostname)) {
+    url.pathname = url.pathname.replace(/(?:%20)+(?=\d+\.html\/?$)/gi, '');
+  }
   url.hash = '';
   const trackingNames = new Set(['fbclid', 'gclid', 'msclkid', 'ref', 'referrer']);
   for (const key of [...url.searchParams.keys()]) {
