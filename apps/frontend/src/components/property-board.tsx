@@ -34,6 +34,72 @@ function money(amount: number | null, currency: string | null) {
   }).format(amount);
 }
 
+function ProcessCard({
+  property,
+  busyId,
+  onMove,
+  draggable = false
+}: {
+  property: PropertyDto;
+  busyId: string | null;
+  onMove: (id: string, status: PropertyDto['decisionStatus']) => void;
+  draggable?: boolean;
+}) {
+  return (
+    <article className={`kanban-card${busyId === property.id ? ' is-saving' : ''}`} draggable={draggable}>
+      <Link className="kanban-card-main" href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
+        <div className="kanban-card-image">
+          {property.images[0] ? (
+            <img src={property.images[0].url} alt="" />
+          ) : (
+            <div className="image-placeholder">Sin foto</div>
+          )}
+          {property.isFavorite ? (
+            <span className="kanban-favorite">
+              <MaterialIcon name="favorite" />
+            </span>
+          ) : null}
+          {draggable ? (
+            <span className="drag-handle" aria-hidden="true">
+              ⠿
+            </span>
+          ) : null}
+        </div>
+        <div className="kanban-card-copy">
+          <span>{property.neighborhood ?? property.municipality ?? 'Ubicación pendiente'}</span>
+          <h3>{property.title}</h3>
+          <strong>{money(property.priceAmount, property.priceCurrency)}</strong>
+          <div className="kanban-meta">
+            <span>{property.bedrooms ?? '—'} rec.</span>
+            <span>{property.bathrooms ?? '—'} baños</span>
+            {property.constructionAreaM2 ? <span>{property.constructionAreaM2} m²</span> : null}
+          </div>
+        </div>
+      </Link>
+      <div className="kanban-card-actions">
+        <label>
+          <span>Etapa</span>
+          <select
+            value={property.decisionStatus}
+            disabled={busyId === property.id}
+            onChange={(event) => onMove(property.id, event.target.value as PropertyDto['decisionStatus'])}
+            aria-label={`Etapa de ${property.title}`}
+          >
+            {lifecycle.map((option) => (
+              <option key={option.status} value={option.status}>
+                {statusLabels[option.status]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Link href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
+          <MaterialIcon name="arrowForward" />
+        </Link>
+      </div>
+    </article>
+  );
+}
+
 export function PropertyBoard({
   properties,
   busyId,
@@ -60,7 +126,7 @@ export function PropertyBoard({
         <div>
           <span className="eyebrow">Tu proceso de compra</span>
           <h1>De hallazgo a hogar</h1>
-          <p>Arrastra cada propiedad a su siguiente etapa. Los cambios se guardan automáticamente.</p>
+          <p>Organiza cada propiedad por etapa. Los cambios se guardan automáticamente.</p>
         </div>
         <div className="board-legend">
           <span />
@@ -95,8 +161,7 @@ export function PropertyBoard({
               </header>
               <div className="kanban-cards">
                 {cards.map((property) => (
-                  <article
-                    className={`kanban-card${busyId === property.id ? ' is-saving' : ''}`}
+                  <div
                     key={property.id}
                     draggable={busyId !== property.id}
                     onDragStart={(event) => {
@@ -109,56 +174,42 @@ export function PropertyBoard({
                       setOverStatus(null);
                     }}
                   >
-                    <div className="kanban-card-image">
-                      {property.images[0] ? (
-                        <img src={property.images[0].url} alt="" />
-                      ) : (
-                        <div className="image-placeholder">Sin foto</div>
-                      )}
-                      {property.isFavorite ? (
-                        <span className="kanban-favorite">
-                          <MaterialIcon name="favorite" />
-                        </span>
-                      ) : null}
-                      <span className="drag-handle" aria-hidden="true">
-                        ⠿
-                      </span>
-                    </div>
-                    <div className="kanban-card-copy">
-                      <span>{property.neighborhood ?? property.municipality ?? 'Ubicación pendiente'}</span>
-                      <h3>{property.title}</h3>
-                      <strong>{money(property.priceAmount, property.priceCurrency)}</strong>
-                      <div className="kanban-meta">
-                        <span>{property.bedrooms ?? '—'} rec.</span>
-                        <span>{property.bathrooms ?? '—'} baños</span>
-                        {property.constructionAreaM2 ? <span>{property.constructionAreaM2} m²</span> : null}
-                      </div>
-                    </div>
-                    <div className="kanban-card-actions">
-                      <label>
-                        <span className="sr-only">Mover {property.title} a otra etapa</span>
-                        <select
-                          value={property.decisionStatus}
-                          disabled={busyId === property.id}
-                          onChange={(event) => onMove(property.id, event.target.value as PropertyDto['decisionStatus'])}
-                          aria-label={`Etapa de ${property.title}`}
-                        >
-                          {lifecycle.map((option) => (
-                            <option key={option.status} value={option.status}>
-                              {statusLabels[option.status]}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <Link href={`/properties/${property.id}`} aria-label={`Ver ${property.title}`}>
-                        <MaterialIcon name="arrowForward" />
-                      </Link>
-                    </div>
-                  </article>
+                    <ProcessCard property={property} busyId={busyId} onMove={onMove} draggable />
+                  </div>
                 ))}
                 {!cards.length ? <div className="kanban-empty">Suelta una propiedad aquí</div> : null}
               </div>
             </section>
+          );
+        })}
+      </div>
+      <div className="mobile-process-list">
+        {lifecycle.map((stage) => {
+          const cards = properties.filter((property) => property.decisionStatus === stage.status);
+          return (
+            <details
+              className={`mobile-stage tone-${stage.tone}`}
+              key={stage.status}
+              open={cards.length > 0 || undefined}
+            >
+              <summary>
+                <span className="stage-dot" />
+                <span>
+                  <strong>{stage.label}</strong>
+                  <small>{stage.description}</small>
+                </span>
+                <b>{cards.length}</b>
+              </summary>
+              <div className="mobile-stage-cards">
+                {cards.length ? (
+                  cards.map((property) => (
+                    <ProcessCard key={property.id} property={property} busyId={busyId} onMove={onMove} />
+                  ))
+                ) : (
+                  <p>Sin propiedades en esta etapa.</p>
+                )}
+              </div>
+            </details>
           );
         })}
       </div>
