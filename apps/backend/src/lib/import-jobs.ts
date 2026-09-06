@@ -3,6 +3,7 @@ import { extractProperty, ListingValidationError } from './import-extraction.js'
 import { upsertProperty } from './property-store.js';
 import { enabledProviderCredential, markProviderCredentialInvalid } from './provider-credentials.js';
 import { importDebug } from './import-debug.js';
+import { resolveImportProvider } from './import-providers/registry.js';
 
 export async function processImportJob(db: PrismaClient, id: string, extract = extractProperty) {
   const startedAt = Date.now();
@@ -20,8 +21,11 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
     attempt: job.retryCount + 1,
     sourceHost: new URL(job.canonicalUrl).hostname
   });
+  const requiresRenderedFetch = resolveImportProvider(new URL(job.canonicalUrl)).requiresRenderedFetch === true;
   const [firecrawl, openai] = await Promise.all([
-    job.kind === 'ENHANCEMENT' ? enabledProviderCredential(db, job.ownerId, 'FIRECRAWL') : Promise.resolve(null),
+    job.kind === 'ENHANCEMENT' || requiresRenderedFetch
+      ? enabledProviderCredential(db, job.ownerId, 'FIRECRAWL')
+      : Promise.resolve(null),
     enabledProviderCredential(db, job.ownerId, 'OPENAI')
   ]);
   const heartbeat = setInterval(() => {

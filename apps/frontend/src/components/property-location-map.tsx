@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
 
@@ -64,5 +65,18 @@ export function PropertyLocationMap({
     };
   }, [latitude, longitude, title]);
 
-  return <div ref={containerRef} className="detail-location-map" />;
+  return (
+    <div className="detail-location-map-shell">
+      <div ref={containerRef} className="detail-location-map" />
+      <button
+        type="button"
+        className="detail-map-recenter"
+        title="Centrar la propiedad"
+        aria-label="Centrar la propiedad"
+        onClick={() => mapRef.current?.easeTo({ center: [longitude, latitude], duration: 450 })}
+      >
+        <CenterFocusStrongIcon className="material-icon" aria-hidden="true" focusable="false" />
+      </button>
+    </div>
+  );
 }

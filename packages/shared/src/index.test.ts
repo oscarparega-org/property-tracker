@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canonicalizeListingUrl,
   createSearchRequestSchema,
   deletePropertyRequestSchema,
   decisionStatusRequestSchema,
@@ -29,5 +30,13 @@ describe('shared contracts', () => {
   it('validates board status moves', () => {
     expect(decisionStatusRequestSchema.parse({ decisionStatus: 'VISITED' })).toEqual({ decisionStatus: 'VISITED' });
     expect(() => decisionStatusRequestSchema.parse({ decisionStatus: 'UNKNOWN' })).toThrow();
+  });
+
+  it('removes accidental spaces before an Inmuebles24 listing id', () => {
+    expect(
+      canonicalizeListingUrl(
+        'https://www.inmuebles24.com/propiedades/clasificado/departamento-en-venta-   148290981.html?n_src=Listado'
+      )
+    ).toBe('https://www.inmuebles24.com/propiedades/clasificado/departamento-en-venta-148290981.html?n_src=Listado');
   });
 });
