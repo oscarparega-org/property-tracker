@@ -56,7 +56,7 @@ export const editorSchema = z.object({
   agentEmail: z.string().trim().email().or(z.literal("")),
   officeName: optionalText,
   sourceOfficeId: optionalText,
-  decisionStatus: z.enum(["NEW", "INTERESTED", "CONTACTED", "VISIT_SCHEDULED", "VISITED", "OFFER_MADE", "REJECTED", "PURCHASED"]),
+  decisionStatus: z.enum(["NEW", "CONTACTED", "VISIT_SCHEDULED", "VISITED", "OFFER_MADE", "REJECTED", "PURCHASED"]),
   rating: z.string().transform((value) => (value ? Number(value) : null)).pipe(z.number().int().min(1).max(5).nullable()),
   notes: optionalText,
   visitAt: z.string().transform((value) => (value ? new Date(value) : null)).pipe(z.date().nullable()),
@@ -79,7 +79,7 @@ export const editorSchema = z.object({
 
 export const decisionSchema = z.object({
   id: z.string().min(1),
-  decisionStatus: z.enum(["NEW", "INTERESTED", "CONTACTED", "VISIT_SCHEDULED", "VISITED", "OFFER_MADE", "REJECTED", "PURCHASED"]),
+  decisionStatus: z.enum(["NEW", "CONTACTED", "VISIT_SCHEDULED", "VISITED", "OFFER_MADE", "REJECTED", "PURCHASED"]),
   rating: z.string().transform((value) => (value ? Number(value) : null)).pipe(z.number().int().min(1).max(5).nullable()),
   visitAt: z.string().transform((value) => (value ? new Date(value) : null)).pipe(z.date().nullable()),
   notes: optionalText,

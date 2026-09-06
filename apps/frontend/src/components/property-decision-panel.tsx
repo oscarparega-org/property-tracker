@@ -6,7 +6,6 @@ import type { PropertyDto } from "@template/shared";
 
 const statuses = [
   ["NEW", "Nueva"],
-  ["INTERESTED", "Me interesa"],
   ["CONTACTED", "Contactada"],
   ["VISIT_SCHEDULED", "Visita agendada"],
   ["VISITED", "Visitada"],

@@ -91,7 +91,6 @@ enum OperationType {
 
 enum DecisionStatus {
   NEW
-  INTERESTED
   CONTACTED
   VISIT_SCHEDULED
   VISITED

@@ -92,7 +92,7 @@ describe('clean account → URL → private draft → publication', () => {
     expect(await (await request('/api/properties?publicationStatus=DRAFT')).json()).toEqual([]);
   });
   it('isolates every ID-based mutation and allows the same URL for another account', async () => {
-    for (const suffix of ['', '/favorite', '/archive', '/decision']) {
+    for (const suffix of ['', '/favorite', '/archive', '/decision', '/status']) {
       const response = await request(`/api/properties/${propertyId}${suffix}`, cookieB, suffix ? 'PATCH' : 'PUT', '{}');
       expect(response.status).toBe(404);
     }
@@ -114,6 +114,10 @@ describe('clean account → URL → private draft → publication', () => {
     expect(response.status).toBe(200);
     const result = await response.json();
     expect(result).toMatchObject({ notes: 'Visitar', rating: 4, archivedAt: null, isFavorite: true, visitAt: '2026-10-01T18:00:00.000Z' });
+    const moved = await request(`/api/properties/${propertyId}/status`, cookieA, 'PATCH', JSON.stringify({ decisionStatus: 'VISITED' }));
+    expect(moved.status).toBe(200);
+    expect(await moved.json()).toMatchObject({ decisionStatus: 'VISITED', notes: 'Visitar', rating: 4 });
+    expect((await request(`/api/properties/${propertyId}/status`, cookieA, 'PATCH', JSON.stringify({ decisionStatus: 'UNKNOWN' }))).status).toBe(400);
   });
   it('creates and edits a manual property without a source URL', async () => {
     const property = await (await request(`/api/properties/${propertyId}`)).json();
