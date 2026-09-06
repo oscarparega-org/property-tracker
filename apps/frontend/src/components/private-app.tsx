@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
 import { MaterialIcon } from '@/components/material-icon';
+import { mainContentId } from '@/components/skip-link';
 
 export function PrivateApp({ children }: { children: ReactNode }) {
   const path = usePathname();
@@ -63,7 +64,7 @@ export function PrivateApp({ children }: { children: ReactNode }) {
           </div>
         </details>
       </header>
-      <div className="authenticated-content" key={session.user.id}>
+      <div className="authenticated-content" id={mainContentId} key={session.user.id} tabIndex={-1}>
         {children}
       </div>
     </div>
