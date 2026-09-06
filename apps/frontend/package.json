@@ -13,7 +13,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@house-tracker/shared": "*",
+    "@mui/icons-material": "^9.4.0",
+    "@mui/material": "^9.4.0",
     "better-auth": "1.7.1",
     "geist": "^1.7.2",
     "maplibre-gl": "6.6.0",
