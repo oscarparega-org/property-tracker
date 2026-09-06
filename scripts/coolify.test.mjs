@@ -53,11 +53,11 @@ test('does not leak token values in HTTP errors', async () => {
   );
 });
 
-test('reuses existing resources during reconciliation', async () => {
+test('reuses an existing project by name regardless of its description', async () => {
   const config = buildDeploymentConfig(environment);
   const calls = [];
   const responses = new Map([
-    ['/projects', [{ uuid: 'project-1', name: config.projectName, description: config.projectDescription }]],
+    ['/projects', [{ uuid: 'project-1', name: config.projectName, description: 'Legacy project description' }]],
     ['/projects/project-1', { environments: [{ uuid: 'env-1', name: 'dev' }] }],
     ['/servers/server-1/destinations', [{ uuid: 'destination-1', network: config.networkName }]],
     [
