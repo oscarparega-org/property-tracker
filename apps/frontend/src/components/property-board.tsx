@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, type DragEvent } from 'react';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 import { MaterialIcon } from '@/components/material-icon';
 
 export const lifecycle = [

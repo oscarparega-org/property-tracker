@@ -56,7 +56,7 @@ export function buildDeploymentConfig(source = process.env) {
     sha: required('GITHUB_SHA'),
     branch: source.GITHUB_REF_NAME?.trim() || 'main',
     projectName: repo,
-    projectDescription: `Managed by fullstack template for GitHub repository ${repository} (${repositoryId})`,
+    projectDescription: `Managed deployment for GitHub repository ${repository} (${repositoryId})`,
     environmentName: 'dev',
     destinationName: `${repo}-dev`,
     networkName: `repo-${repositoryId}-dev`,
@@ -167,7 +167,7 @@ export async function reconcile(client, config) {
         ports_exposes: '3000',
         base_directory: '/',
         docker_compose_location: '/docker-compose.coolify.yml',
-        tags: [config.resourceTag, 'fullstack-template', 'dev'],
+        tags: [config.resourceTag, 'house-tracker', 'dev'],
         instant_deploy: false,
         autogenerate_domain: false,
         ...applicationSettings

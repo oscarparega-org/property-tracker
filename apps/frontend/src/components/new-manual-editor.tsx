@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { PropertyEditor } from '@/components/property-editor';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 
 const emptyProperty: PropertyDto = {
   id: '',

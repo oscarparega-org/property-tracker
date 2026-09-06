@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, Marker } from 'maplibre-gl';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 
 maplibregl.setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 

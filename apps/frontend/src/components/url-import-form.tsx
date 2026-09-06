@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ImportJobDto, ImportStartDto, ImportRequest } from '@template/shared';
+import type { ImportJobDto, ImportStartDto, ImportRequest } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
 import { MaterialIcon } from './material-icon';
 

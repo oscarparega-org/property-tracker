@@ -5,7 +5,7 @@ import { MaterialIcon } from '@/components/material-icon';
 import { PropertyDecisionPanel } from '@/components/property-decision-panel';
 import { PropertyGallery } from '@/components/property-gallery';
 import { PropertyLocationMap } from '@/components/property-location-map';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 import { ActionForm } from '@/components/action-form';
 import { PropertyEnhancement } from '@/components/property-enhancement';
 import { BodyNavigation } from '@/components/body-navigation';

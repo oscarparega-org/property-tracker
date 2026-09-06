@@ -1,24 +1,11 @@
-import { propertyInputSchema, type PropertyInput } from '@template/shared';
-import type { DirectExtraction, ExtractionArtifact } from '../import-extraction.js';
+import { propertyInputSchema, type PropertyInput } from '@house-tracker/shared';
+import type { DirectExtraction, ExtractionArtifact } from '../import-types.js';
 import type { ImportProvider, ProviderContext } from './types.js';
-
-type JsonRecord = Record<string, unknown>;
+import { array, record, string, type JsonRecord } from './primitives.js';
 
 const PROVIDER_KEY = 'mercado-libre';
 const PROVIDER_NAME = 'Mercado Libre';
 const PROVIDER_VERSION = '1';
-
-function record(value: unknown): JsonRecord | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : null;
-}
-
-function array(value: unknown) {
-  return Array.isArray(value) ? value : [];
-}
-
-function string(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
 
 function number(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;

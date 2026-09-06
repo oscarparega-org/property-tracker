@@ -17,8 +17,8 @@ COPY --from=deps /app/ ./
 COPY tsconfig.base.json turbo.json ./
 COPY packages/shared ./packages/shared
 COPY apps/frontend ./apps/frontend
-RUN npm run build --workspace=@template/shared
-RUN npm run build --workspace=template-frontend
+RUN npm run build --workspace=@house-tracker/shared
+RUN npm run build --workspace=house-tracker-frontend
 
 FROM base AS runtime
 WORKDIR /app

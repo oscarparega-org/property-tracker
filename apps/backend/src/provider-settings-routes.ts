@@ -1,7 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { integrationProviderSchema, providerSettingsUpdateSchema } from '@template/shared';
+import { integrationProviderSchema, providerSettingsUpdateSchema } from '@house-tracker/shared';
 import type { AppVariables } from './types.js';
 import {
   deleteProviderCredential,
@@ -10,7 +10,6 @@ import {
   testStoredProviderCredential,
   updateProviderSettings
 } from './lib/provider-credentials.js';
-import { reserveWrite } from './lib/write-limits.js';
 
 export function providerSettingsRoutes(db: PrismaClient) {
   const routes = new Hono<{ Variables: AppVariables }>();
@@ -24,7 +23,6 @@ export function providerSettingsRoutes(db: PrismaClient) {
 
   routes.get('/settings/providers', async (c) => c.json(await listProviderSettings(db, owner(c))));
   routes.put('/settings/providers/:provider', async (c) => {
-    await reserveWrite(db, owner(c), c.req.raw.headers, 'provider-settings', 10, 100);
     return c.json(
       await updateProviderSettings(
         db,
@@ -35,11 +33,9 @@ export function providerSettingsRoutes(db: PrismaClient) {
     );
   });
   routes.post('/settings/providers/:provider/test', async (c) => {
-    await reserveWrite(db, owner(c), c.req.raw.headers, 'provider-test', 10, 100);
     return c.json(await testStoredProviderCredential(db, owner(c), provider(c.req.param('provider'))));
   });
   routes.delete('/settings/providers/:provider/credential', async (c) => {
-    await reserveWrite(db, owner(c), c.req.raw.headers, 'provider-settings', 10, 100);
     return c.json(await deleteProviderCredential(db, owner(c), provider(c.req.param('provider'))));
   });
   routes.onError((error, c) => {

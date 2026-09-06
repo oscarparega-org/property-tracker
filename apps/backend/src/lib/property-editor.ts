@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { HTTPException } from 'hono/http-exception';
-import { editorSchema, canonicalizeListingUrl, httpUrl } from '@template/shared';
+import { editorSchema, canonicalizeListingUrl, httpUrl } from '@house-tracker/shared';
 import { toPropertyDto } from './property-store.js';
 function lines(value: string) {
   return [

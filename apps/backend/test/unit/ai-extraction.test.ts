@@ -59,7 +59,7 @@ function aiProperty() {
   };
 }
 
-it('rejects a page with zero property evidence without spending an AI operation', async () => {
+it('rejects a page with zero property evidence without calling OpenAI', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(
@@ -72,13 +72,11 @@ it('rejects a page with zero property evidence without spending an AI operation'
         )
     )
   );
-  const reserveAi = vi.fn(async () => true);
   await expect(
     extractProperty('https://example.com/news', {
-      openai: { credential: 'fixture-key', model: 'gpt-5.6-luna', reserve: reserveAi, onInvalidCredential: vi.fn() }
+      openai: { credential: 'fixture-key', model: 'gpt-5.6-luna', onInvalidCredential: vi.fn() }
     })
   ).rejects.toThrow(/no parece corresponder/);
-  expect(reserveAi).not.toHaveBeenCalled();
 });
 
 it('uses one grounded AI assessment for a borderline direct extraction', async () => {
@@ -101,33 +99,29 @@ it('uses one grounded AI assessment for a borderline direct extraction', async (
     );
   });
   vi.stubGlobal('fetch', fetcher);
-  const reserveAi = vi.fn(async () => true);
   const result = await extractProperty('https://example.com/listing', {
-    openai: { credential: 'fixture-key', model: 'gpt-5.6-luna', reserve: reserveAi, onInvalidCredential: vi.fn() }
+    openai: { credential: 'fixture-key', model: 'gpt-5.6-luna', onInvalidCredential: vi.fn() }
   });
   expect(result.input.property.price.amount).toBe(2_500_000);
   expect(result.evidence).toMatchObject({ gate: 'BORDERLINE', aiValidated: true, aiConfidence: 0.92 });
-  expect(reserveAi).toHaveBeenCalledOnce();
+  expect(fetcher.mock.calls.filter(([input]) => String(input).includes('api.openai.com'))).toHaveLength(1);
 });
 
-it('creates a high-confidence direct result without spending an AI operation', async () => {
+it('creates a high-confidence direct result without calling OpenAI', async () => {
   const html =
     '<html><head><meta property="og:image" content="/house.jpg"><script type="application/ld+json">{"@type":"House","name":"Casa en venta","offers":{"price":2500000,"priceCurrency":"MXN"},"geo":{"latitude":19.4,"longitude":-99.1}}</script></head><body>' +
     'Casa en venta con tres recámaras y dos baños. '.repeat(4) +
     '</body></html>';
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => new Response(html, { headers: { 'content-type': 'text/html' } }))
-  );
-  const reserveAi = vi.fn(async () => true);
+  const fetcher = vi.fn(async () => new Response(html, { headers: { 'content-type': 'text/html' } }));
+  vi.stubGlobal('fetch', fetcher);
   const debug = vi.fn();
   const result = await extractProperty('https://example.com/listing', {
     debug,
-    openai: { credential: 'fixture-key', model: 'gpt-5.6-luna', reserve: reserveAi, onInvalidCredential: vi.fn() }
+    openai: { credential: 'fixture-key', model: 'gpt-5.6-luna', onInvalidCredential: vi.fn() }
   });
   expect(result.strategy).toBe('direct');
   expect(result.evidence).toMatchObject({ gate: 'PASS' });
-  expect(reserveAi).not.toHaveBeenCalled();
+  expect(fetcher).toHaveBeenCalledOnce();
   expect(debug.mock.calls.map((call) => call[0])).toEqual([
     'direct.request.started',
     'direct.request.completed',
@@ -161,15 +155,12 @@ it('forces Firecrawl and OpenAI for a deep extraction', async () => {
     throw new Error(`Unexpected request: ${target}`);
   });
   vi.stubGlobal('fetch', fetcher);
-  const reserveFirecrawl = vi.fn(async () => true);
-  const reserveOpenai = vi.fn(async () => true);
   const result = await extractProperty('https://example.com/listing', {
     mode: 'DEEP',
-    firecrawl: { credential: 'fc-key', reserve: reserveFirecrawl, onInvalidCredential: vi.fn() },
-    openai: { credential: 'sk-key', model: 'gpt-5.6-luna', reserve: reserveOpenai, onInvalidCredential: vi.fn() }
+    firecrawl: { credential: 'fc-key', onInvalidCredential: vi.fn() },
+    openai: { credential: 'sk-key', model: 'gpt-5.6-luna', onInvalidCredential: vi.fn() }
   });
   expect(result.strategy).toBe('firecrawl+openai');
   expect(result.firecrawlCredits).toBe(1);
-  expect(reserveFirecrawl).toHaveBeenCalledOnce();
-  expect(reserveOpenai).toHaveBeenCalledOnce();
+  expect(fetcher).toHaveBeenCalledTimes(2);
 });

@@ -1,9 +1,8 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import type { IntegrationProvider, ProviderSettingsDto, ProviderSettingsUpdate } from '@template/shared';
+import type { IntegrationProvider, ProviderSettingsDto, ProviderSettingsUpdate } from '@house-tracker/shared';
 import type { IntegrationProvider as PrismaProvider, PrismaClient, ProviderSetting } from '@prisma/client';
 
 const DEFAULT_MODELS = ['gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol'];
-const DEFAULT_LIMITS: Record<IntegrationProvider, number> = { OPENAI: 100, FIRECRAWL: 500 };
 
 export class ProviderCredentialError extends Error {
   constructor(
@@ -24,7 +23,24 @@ function encryptionKey() {
 }
 
 function aad(ownerId: string, provider: IntegrationProvider) {
+  return Buffer.from(`house-tracker:${ownerId}:${provider}:v2`, 'utf8');
+}
+
+// Remove after all credentials saved before the House Tracker rename have been
+// replaced. AES-GCM authenticates this value, so existing ciphertext cannot be
+// migrated without retaining its original context during decryption.
+function legacyAad(ownerId: string, provider: IntegrationProvider) {
   return Buffer.from(`casa-clara:${ownerId}:${provider}:v1`, 'utf8');
+}
+
+function decryptWithAad(
+  setting: Pick<ProviderSetting, 'credentialCiphertext' | 'credentialIv' | 'credentialAuthTag'>,
+  associatedData: Buffer
+) {
+  const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), setting.credentialIv!);
+  decipher.setAAD(associatedData);
+  decipher.setAuthTag(setting.credentialAuthTag!);
+  return Buffer.concat([decipher.update(setting.credentialCiphertext!), decipher.final()]).toString('utf8');
 }
 
 export function encryptProviderCredential(ownerId: string, provider: IntegrationProvider, credential: string) {
@@ -41,10 +57,11 @@ export function decryptProviderCredential(
   setting: Pick<ProviderSetting, 'credentialCiphertext' | 'credentialIv' | 'credentialAuthTag'>
 ) {
   if (!setting.credentialCiphertext || !setting.credentialIv || !setting.credentialAuthTag) return null;
-  const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), setting.credentialIv);
-  decipher.setAAD(aad(ownerId, provider));
-  decipher.setAuthTag(setting.credentialAuthTag);
-  return Buffer.concat([decipher.update(setting.credentialCiphertext), decipher.final()]).toString('utf8');
+  try {
+    return decryptWithAad(setting, aad(ownerId, provider));
+  } catch {
+    return decryptWithAad(setting, legacyAad(ownerId, provider));
+  }
 }
 
 export function allowedOpenAiModels() {
@@ -52,14 +69,6 @@ export function allowedOpenAiModels() {
     .map((value) => value.trim())
     .filter(Boolean);
   return [...new Set(configured?.length ? configured : DEFAULT_MODELS)];
-}
-
-export function providerGlobalLimit(provider: IntegrationProvider) {
-  const name = provider === 'OPENAI' ? 'OPENAI_IMPORT_LIMIT_MONTHLY' : 'FIRECRAWL_CREDIT_LIMIT_MONTHLY';
-  const fallback = DEFAULT_LIMITS[provider];
-  const value = Number(process.env[name] ?? fallback);
-  if (!Number.isInteger(value) || value < 0) throw new Error(`Invalid ${name}`);
-  return value;
 }
 
 export async function validateProviderCredential(
@@ -99,14 +108,9 @@ function status(setting: ProviderSetting | null): ProviderSettingsDto['status'] 
 }
 
 export async function listProviderSettings(db: PrismaClient, ownerId: string): Promise<ProviderSettingsDto[]> {
-  const month = new Date().toISOString().slice(0, 7);
-  const [settings, usages] = await Promise.all([
-    db.providerSetting.findMany({ where: { ownerId } }),
-    db.providerUsage.findMany({ where: { ownerId, month } })
-  ]);
+  const settings = await db.providerSetting.findMany({ where: { ownerId } });
   return (['OPENAI', 'FIRECRAWL'] as const).map((provider) => {
     const setting = settings.find((item) => item.provider === provider) ?? null;
-    const usage = usages.find((item) => item.provider === provider)?.operationCount ?? 0;
     return {
       provider,
       enabled: setting?.enabled ?? false,
@@ -114,8 +118,6 @@ export async function listProviderSettings(db: PrismaClient, ownerId: string): P
       credentialHint: setting?.credentialHint ? `••••${setting.credentialHint}` : null,
       model: provider === 'OPENAI' ? (setting?.model ?? allowedOpenAiModels()[0]!) : null,
       allowedModels: provider === 'OPENAI' ? allowedOpenAiModels() : [],
-      monthlyOperationLimit: setting?.monthlyOperationLimit ?? DEFAULT_LIMITS[provider],
-      currentMonthOperations: usage,
       validatedAt: setting?.validatedAt?.toISOString() ?? null,
       status: status(setting)
     };
@@ -134,8 +136,6 @@ export async function updateProviderSettings(
   const model = provider === 'OPENAI' ? (input.model ?? existing?.model ?? allowedOpenAiModels()[0]!) : null;
   if (provider === 'OPENAI' && !allowedOpenAiModels().includes(model!))
     throw new ProviderCredentialError('El modelo no está permitido.', 'INVALID_CONFIGURATION');
-  if (input.monthlyOperationLimit > providerGlobalLimit(provider))
-    throw new ProviderCredentialError('El límite supera el máximo permitido por el servidor.', 'INVALID_CONFIGURATION');
   const credential = input.credential ?? (existing ? decryptProviderCredential(ownerId, provider, existing) : null);
   if (input.enabled && !credential)
     throw new ProviderCredentialError('Agrega una credencial antes de activar el proveedor.', 'INVALID_CONFIGURATION');
@@ -154,7 +154,6 @@ export async function updateProviderSettings(
       provider: provider as PrismaProvider,
       enabled: input.enabled,
       model,
-      monthlyOperationLimit: input.monthlyOperationLimit,
       ...(encrypted
         ? {
             credentialCiphertext: encrypted.ciphertext,
@@ -168,7 +167,6 @@ export async function updateProviderSettings(
     update: {
       enabled: input.enabled,
       model,
-      monthlyOperationLimit: input.monthlyOperationLimit,
       ...(encrypted
         ? {
             credentialCiphertext: encrypted.ciphertext,
@@ -220,9 +218,7 @@ export async function enabledProviderCredential(db: PrismaClient, ownerId: strin
   });
   if (!setting?.enabled || setting.needsAttention || !setting.validatedAt) return null;
   const credential = decryptProviderCredential(ownerId, provider, setting);
-  return credential
-    ? { credential, model: setting.model, monthlyOperationLimit: setting.monthlyOperationLimit, settingId: setting.id }
-    : null;
+  return credential ? { credential, model: setting.model, settingId: setting.id } : null;
 }
 
 export async function markProviderCredentialInvalid(db: PrismaClient, settingId: string) {

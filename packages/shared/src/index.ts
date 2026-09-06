@@ -4,11 +4,6 @@ export type HealthResponse = {
   timestamp: string;
 };
 
-export type ProtectedResponse = {
-  message: string;
-  user: { id: string; name: string; email: string };
-};
-
 export * from './property.js';
 export * from './property-input.js';
 export * from './property-editor.js';

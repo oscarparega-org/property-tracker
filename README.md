@@ -24,7 +24,7 @@ npm ci
 cp .env.example .env
 cp apps/backend/.env.example apps/backend/.env
 docker compose up -d postgres
-npm run db:migrate --workspace=template-backend
+npm run db:migrate --workspace=house-tracker-backend
 npm run dev
 ```
 
@@ -32,7 +32,7 @@ In another terminal, run `npm run worker:imports`. The frontend uses port 5173 a
 
 ## Personal provider configuration
 
-Each authenticated user configures OpenAI and Firecrawl from **Configuración → Integraciones**. Provider credentials are validated before saving, encrypted at rest, never returned by the API, and used only for jobs owned by that account. Users can independently enable each provider, choose an approved OpenAI model, and set monthly operation limits.
+Each authenticated user configures OpenAI and Firecrawl from **Configuración → Integraciones**. Provider credentials are validated before saving, encrypted at rest, never returned by the API, and used only for jobs owned by that account. Users can independently enable each provider and choose an approved OpenAI model.
 
 The deployment uses these server-side variables:
 
@@ -40,15 +40,10 @@ The deployment uses these server-side variables:
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` | Stable base64 secret containing at least 32 random bytes; encrypts user credentials with AES-256-GCM |
 | `OPENAI_ALLOWED_MODELS`              | Comma-separated model allowlist; defaults to Luna, Terra, and Sol                                    |
-| `FIRECRAWL_CREDIT_LIMIT_MONTHLY`     | Global safety ceiling; default 500 scrape reservations per UTC month                                 |
-| `OPENAI_IMPORT_LIMIT_MONTHLY`        | Global safety ceiling; default 100 AI request reservations per UTC month                             |
-| `TRUST_PROXY`                        | Defaults to false; enable only if the proxy replaces untrusted forwarded headers                     |
 
 Production reads the encryption key from the `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` secret in the GitHub `dev` environment and the deployment controller writes it to Coolify. Generate it with `openssl rand -base64 32` and keep it out of source control. The key must remain stable and backed up; losing or rotating it requires users to enter their provider credentials again.
 
-New URL imports first make a safe, size-limited HTTP GET and extract HTML, JSON-LD, Open Graph, and embedded metadata. A deterministic confidence gate accepts clear property listings and rejects pages with no property evidence. Borderline pages are rejected when OpenAI is unavailable; when it is enabled, one grounded model response validates the page and completes only supported fields. Firecrawl is never automatic: an existing property's **Mejorar con Firecrawl + IA** action appears only when both providers are active, produces a preview, and fills empty fields plus new images/features without overwriting user-entered values or decisions. User and global budgets reserve operations before requests, including failures and retries, so they are not billing reconciliation.
-
-Hono reserves hourly account limits and daily application limits for URL imports (5/25), manual creation (10/50), and draft updates (15/75). IP limits are also applied when a trusted proxy is configured. IPs are hashed using the authentication secret; an optional `PUBLIC_WRITE_HASH_SECRET` can override it for non-Compose development. CAPTCHA is not used.
+New URL imports first make a safe, size-limited HTTP GET and extract HTML, JSON-LD, Open Graph, and embedded metadata. A deterministic confidence gate accepts clear property listings and rejects pages with no property evidence. Borderline pages are rejected when OpenAI is unavailable; when it is enabled, one grounded model response validates the page and completes only supported fields. Firecrawl is never automatic: an existing property's **Mejorar con Firecrawl + IA** action appears only when both providers are active, produces a preview, and fills empty fields plus new images/features without overwriting user-entered values or decisions. Provider calls use the authenticated user's own credential and are not rate limited by the application.
 
 The worker polls the database, atomically claims queued jobs, retries up to three attempts, and recovers interrupted work. Each deployment runs one worker. The worker health check verifies its heartbeat; failures exit and the container restart policy restarts it. Monitor failed jobs and worker logs through Coolify.
 
@@ -70,7 +65,7 @@ Organization/repository Actions variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UU
 
 The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials and the Better Auth secret; the deployment controller injects the stable provider-credential encryption key from GitHub's `dev` environment. User provider tokens never enter the frontend build or deployment environment.
 
-Back up the PostgreSQL volume before deploying migrations. Roll back application code through the same exact-SHA pipeline; these additive property tables can remain when rolling back to the auth-only application. Do not reset or drop the database as a deployment step.
+Back up the PostgreSQL volume before deploying migrations. Roll back application code through the same exact-SHA pipeline, and review migration compatibility before selecting an older release because production migrations are forward-only. Do not reset or drop the database as a deployment step.
 
 ## Verification
 

@@ -5,7 +5,7 @@ import { localDateInput } from '@/lib/date-input';
 import { useRef } from 'react';
 import { savePropertyAction, setArchivedAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 
 type Props = { property: PropertyDto; onClose: () => void; creating?: boolean };
 

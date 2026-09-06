@@ -48,22 +48,6 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
     return context.json({ status: 'ok', database: 'connected', timestamp: new Date().toISOString() });
   });
 
-  app.use('/api/protected', async (context, next) => {
-    const session = await auth.api.getSession({ headers: context.req.raw.headers });
-    context.set('session', session);
-    if (!session) throw new HTTPException(401, { message: 'Authentication required' });
-    await next();
-  });
-
-  app.get('/api/protected', (context) => {
-    const session = context.get('session');
-    if (!session) throw new HTTPException(401);
-    return context.json({
-      message: `Welcome, ${session.user.name}`,
-      user: { id: session.user.id, name: session.user.name, email: session.user.email }
-    });
-  });
-
   app.notFound((context) => context.json({ error: 'Not found' }, 404));
   app.onError((error, context) => {
     if (error instanceof HTTPException) return context.json({ error: error.message }, error.status);

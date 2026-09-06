@@ -1,42 +1,8 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { extractProperty, ListingValidationError } from './import-extraction.js';
 import { upsertProperty } from './property-store.js';
-import {
-  enabledProviderCredential,
-  markProviderCredentialInvalid,
-  providerGlobalLimit
-} from './provider-credentials.js';
+import { enabledProviderCredential, markProviderCredentialInvalid } from './provider-credentials.js';
 import { importDebug } from './import-debug.js';
-
-export async function reserveProvider(
-  db: PrismaClient,
-  jobId: string,
-  ownerId: string,
-  provider: 'OPENAI' | 'FIRECRAWL',
-  userMaximum: number
-) {
-  const globalMaximum = providerGlobalLimit(provider);
-  const budgetField = provider === 'FIRECRAWL' ? 'firecrawl' : 'aiCalls';
-  const month = new Date().toISOString().slice(0, 7);
-  return db.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT pg_advisory_xact_lock(731252)::text`;
-    const budget = await tx.importBudget.upsert({ where: { month }, create: { month }, update: {} });
-    const usage = await tx.providerUsage.upsert({
-      where: { ownerId_provider_month: { ownerId, provider, month } },
-      create: { ownerId, provider, month },
-      update: {}
-    });
-    if (budget[budgetField] >= globalMaximum || usage.operationCount >= userMaximum) return false;
-    await tx.importBudget.update({ where: { month }, data: { [budgetField]: { increment: 1 } } });
-    await tx.providerUsage.update({ where: { id: usage.id }, data: { operationCount: { increment: 1 } } });
-    if (provider === 'FIRECRAWL')
-      await tx.propertyImport.update({
-        where: { id: jobId },
-        data: { firecrawlCredits: { increment: 1 }, status: 'RENDERING' }
-      });
-    return true;
-  });
-}
 
 export async function processImportJob(db: PrismaClient, id: string, extract = extractProperty) {
   const startedAt = Date.now();
@@ -74,6 +40,9 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
     });
     if (job.kind === 'ENHANCEMENT' && (!firecrawl || !openai?.model))
       throw new ListingValidationError('La mejora requiere Firecrawl y OpenAI activos. Revisa tus integraciones.');
+    if (job.kind === 'ENHANCEMENT') {
+      await db.propertyImport.update({ where: { id }, data: { status: 'RENDERING' } });
+    }
     const result = await extract(job.canonicalUrl, {
       mode: job.kind === 'ENHANCEMENT' ? 'DEEP' : 'STANDARD',
       debug: (stage, details = {}) => importDebug(id, stage, details),
@@ -81,7 +50,6 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
         ? {
             firecrawl: {
               credential: firecrawl.credential,
-              reserve: () => reserveProvider(db, id, job.ownerId, 'FIRECRAWL', firecrawl.monthlyOperationLimit),
               onInvalidCredential: () => markProviderCredentialInvalid(db, firecrawl.settingId)
             }
           }
@@ -91,7 +59,6 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
             openai: {
               credential: openai.credential,
               model: openai.model,
-              reserve: () => reserveProvider(db, id, job.ownerId, 'OPENAI', openai.monthlyOperationLimit),
               onInvalidCredential: () => markProviderCredentialInvalid(db, openai.settingId)
             }
           }
@@ -121,6 +88,7 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
           evidence: result.evidence as Prisma.InputJsonValue,
           strategy: result.strategy,
           provider: result.provider,
+          firecrawlCredits: result.firecrawlCredits,
           inputTokens: result.inputTokens,
           outputTokens: result.outputTokens,
           completedAt: new Date(),

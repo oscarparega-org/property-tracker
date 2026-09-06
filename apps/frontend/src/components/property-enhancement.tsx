@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { EnhancementCapabilityDto, EnhancementPreviewDto, ImportJobDto, ImportStatus } from '@template/shared';
+import type {
+  EnhancementCapabilityDto,
+  EnhancementPreviewDto,
+  ImportJobDto,
+  ImportStatus
+} from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
 import { MaterialIcon } from './material-icon';
 

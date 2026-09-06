@@ -2,7 +2,7 @@
 import { ActionForm } from '@/components/action-form';
 import { localDateInput } from '@/lib/date-input';
 import { saveDecisionAction } from '@/lib/property-actions';
-import type { PropertyDto } from '@template/shared';
+import type { PropertyDto } from '@house-tracker/shared';
 
 const statuses = [
   ['NEW', 'Nueva'],

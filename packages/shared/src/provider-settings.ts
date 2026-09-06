@@ -9,8 +9,7 @@ export type ProviderConnectionStatus = z.infer<typeof providerConnectionStatusSc
 export const providerSettingsUpdateSchema = z.object({
   enabled: z.boolean(),
   credential: z.string().trim().min(8).max(4096).optional(),
-  model: z.string().trim().min(1).max(100).nullable().optional(),
-  monthlyOperationLimit: z.number().int().min(1).max(1_000_000)
+  model: z.string().trim().min(1).max(100).nullable().optional()
 });
 
 export type ProviderSettingsUpdate = z.infer<typeof providerSettingsUpdateSchema>;
@@ -22,8 +21,6 @@ export type ProviderSettingsDto = {
   credentialHint: string | null;
   model: string | null;
   allowedModels: string[];
-  monthlyOperationLimit: number;
-  currentMonthOperations: number;
   validatedAt: string | null;
   status: ProviderConnectionStatus;
 };
