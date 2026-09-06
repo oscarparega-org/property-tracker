@@ -74,7 +74,7 @@ services:
       FIRECRAWL_CREDIT_LIMIT_MONTHLY: ${FIRECRAWL_CREDIT_LIMIT_MONTHLY:-500}
       OPENAI_IMPORT_LIMIT_MONTHLY: ${OPENAI_IMPORT_LIMIT_MONTHLY:-100}
     healthcheck:
-      test: ["CMD", "node", "-e", "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/casa-clara-worker-heartbeat','utf8'))>60000)process.exit(1)"]
+      test: ["CMD", "node", "-e", "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/house-tracker-worker-heartbeat','utf8'))>60000)process.exit(1)"]
       interval: 15s
       timeout: 5s
       retries: 4

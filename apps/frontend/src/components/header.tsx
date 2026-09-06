@@ -7,7 +7,7 @@ import { authClient } from '@/lib/auth-client';
 export function Header() {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
-  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'Project Template';
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'House Tracker';
 
   async function signOut() {
     await authClient.signOut();

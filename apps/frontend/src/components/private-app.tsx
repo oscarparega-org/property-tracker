@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 import Link from 'next/link';
+import { MaterialIcon } from '@/components/material-icon';
 
 export function PrivateApp({ children }: { children: ReactNode }) {
   const path = usePathname();
@@ -14,5 +15,33 @@ export function PrivateApp({ children }: { children: ReactNode }) {
   }, [publicPage, isPending, session, router]);
   if (publicPage) return children;
   if (isPending || !session) return <p className="empty-state">Cargando sesión…</p>;
-  return <><div className="account-bar"><span>{session.user.email}</span><Link href="/settings/integrations">Configuración</Link><button className="text-button" onClick={async () => { await authClient.signOut(); router.replace('/sign-in'); }}>Cerrar sesión</button></div><div key={session.user.id}>{children}</div></>;
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || 'House Tracker';
+  const displayName = session.user.name || session.user.email;
+  const initial = displayName.trim().charAt(0).toLocaleUpperCase('es-MX');
+
+  return (
+    <div className="authenticated-shell">
+      <header className="app-header">
+        <Link href="/" className="app-brand" aria-label={`${appName}, propiedades`}>
+          <span className="brand-mark"><MaterialIcon name="home" /></span>
+          <strong>{appName}</strong>
+        </Link>
+        <details className="account-menu">
+          <summary aria-label={`Abrir menú de ${displayName}`}>
+            <span className="account-avatar" aria-hidden="true">{initial}</span>
+            <span className="account-identity"><strong>{displayName}</strong><small>{session.user.email}</small></span>
+            <MaterialIcon name="expandMore" />
+          </summary>
+          <div className="account-popover">
+            <div className="account-popover-heading"><strong>{displayName}</strong><span>{session.user.email}</span></div>
+            <Link href="/settings/integrations"><MaterialIcon name="settings" /> Configuración e integraciones</Link>
+            <button type="button" onClick={async () => { await authClient.signOut(); router.replace('/sign-in'); }}>
+              <MaterialIcon name="logout" /> Cerrar sesión
+            </button>
+          </div>
+        </details>
+      </header>
+      <div className="authenticated-content" key={session.user.id}>{children}</div>
+    </div>
+  );
 }

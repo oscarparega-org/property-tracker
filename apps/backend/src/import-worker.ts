@@ -7,7 +7,7 @@ let stopping = false;
 process.on('SIGINT', () => { stopping = true; });
 process.on('SIGTERM', () => { stopping = true; });
 const heartbeat = setInterval(() => {
-  void writeFile('/tmp/casa-clara-worker-heartbeat', String(Date.now())).catch(() => undefined);
+  void writeFile('/tmp/house-tracker-worker-heartbeat', String(Date.now())).catch(() => undefined);
 }, 10_000);
 try {
   while (!stopping) {

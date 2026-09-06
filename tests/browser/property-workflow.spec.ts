@@ -15,13 +15,15 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   const email = `browser-${randomUUID()}@example.com`;
   emails.push(email);
   await page.goto('/sign-up');
-  await page.getByLabel('Nombre', { exact: true }).fill('Prueba Casa Clara');
+  await page.getByLabel('Nombre', { exact: true }).fill('Prueba House Tracker');
   await page.getByLabel('Correo', { exact: true }).fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill('browser-test-password');
   await page.getByRole('button', { name: 'Crear cuenta', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'House Tracker, propiedades' })).toBeVisible();
+  await page.locator('details.account-menu > summary').click();
   await expect(page.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible();
   await expect(page.locator('.property-card')).toHaveCount(0);
-  await page.getByRole('link', { name: 'Configuración', exact: true }).click();
+  await page.getByRole('link', { name: 'Configuración e integraciones', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Integraciones personales' })).toBeVisible();
   const openAiCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'OpenAI', exact: true }) });
   await openAiCard.getByLabel('API key de OpenAI').fill('sk-browser-owner-secret');
@@ -38,7 +40,7 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await expect(firecrawlCard.getByText('Activa', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Volver a propiedades' }).click();
   await page.getByRole('link', { name: 'Agregar', exact: true }).click();
-  await page.getByRole('textbox', { name: 'URL de la publicación' }).fill('https://example.com/casa-clara-fixture');
+  await page.getByRole('textbox', { name: 'URL de la publicación' }).fill('https://example.com/house-tracker-fixture');
   await page.getByRole('button', { name: 'Importar y crear borrador' }).click();
   await expect(page).toHaveURL(/\/properties\/[^/]+\/review/, { timeout: 30_000 });
   await expect(page.getByLabel('Título', { exact: true })).toHaveValue('Casa de prueba');
@@ -66,6 +68,7 @@ test('fresh signup, URL extraction, draft review, publication and personal decis
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: 'test-results/workspace-mobile.png', fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.locator('details.account-menu > summary').click();
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
   await expect(page).toHaveURL('/sign-in');
   expect(errors).toEqual([]);
