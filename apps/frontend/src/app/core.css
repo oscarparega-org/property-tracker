@@ -1,0 +1,50 @@
+:root {
+  color-scheme: light;
+  --ink: #182033;
+  --ink-soft: #303a52;
+  --muted: #68748a;
+  --paper: #f4f6fa;
+  --panel: #ffffff;
+  --surface-subtle: #edf1f7;
+  --surface-raised: #ffffff;
+  --line: #dbe1eb;
+  --line-strong: #bcc6d8;
+  --brand: #3348a5;
+  --brand-strong: #273986;
+  --brand-soft: #e6eaff;
+  --jacaranda: #78529b;
+  --coral: #d45d50;
+  --success: #23725b;
+  --warning: #a96418;
+  --danger: #b13d4d;
+  /* Compatibility aliases for older component styles. */
+  --lime: var(--brand-soft);
+  --orange: var(--coral);
+  --shadow-sm: 0 2px 8px rgba(31, 43, 70, 0.07);
+  --shadow: 0 16px 42px rgba(31, 43, 70, 0.12);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --control-height: 44px;
+  --font-body: var(--font-geist-sans), sans-serif;
+  --font-display: var(--font-geist-sans), sans-serif;
+  --app-header-height: 72px;
+}
+* {
+  box-sizing: border-box;
+}
+.contents-fieldset {
+  display: contents;
+}
+html,
+body {
+  min-height: 100%;
+}

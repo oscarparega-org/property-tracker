@@ -34,9 +34,15 @@ export default defineConfig({
       }
     },
     {
-      command: `npm exec --workspace=house-tracker-frontend -- next start --port ${webPort}`,
+      command: `npm run build --workspace=house-tracker-frontend && npm exec --workspace=house-tracker-frontend -- next start --port ${webPort}`,
       url: `${webUrl}/sign-in`,
-      reuseExistingServer: false
+      reuseExistingServer: false,
+      env: {
+        NEXT_PUBLIC_API_URL: apiUrl,
+        API_URL: apiUrl,
+        NEXT_OUTPUT_MODE: 'server',
+        NODE_ENV: 'production'
+      }
     }
   ]
 });

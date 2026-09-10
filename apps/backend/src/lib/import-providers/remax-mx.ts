@@ -78,6 +78,24 @@ function numberFromUnknown(value: unknown) {
   return number(string(value));
 }
 
+function nonnegativeNumber(value: string | null) {
+  const parsed = number(value);
+  return parsed !== null && parsed >= 0 ? parsed : null;
+}
+
+function nonnegativeInteger(value: string | null) {
+  const parsed = nonnegativeNumber(value);
+  return parsed === null ? null : Math.trunc(parsed);
+}
+
+function nonnegativeNumberFromUnknown(value: unknown) {
+  return nonnegativeNumber(string(value));
+}
+
+function nonnegativeIntegerFromUnknown(value: unknown) {
+  return nonnegativeInteger(string(value));
+}
+
 function remaxPayload(value: unknown) {
   const root = record(value);
   const data = record(root?.data);
@@ -174,6 +192,7 @@ function buildApiInput(artifact: ExtractionArtifact, payloadValue: unknown): Dir
         providerKey: PROVIDER_KEY,
         providerVersion: PROVIDER_VERSION,
         source: 'listing-api',
+        sourceModifiedAt: string(property.fecha_modificada),
         galleryExpected: array(property.imagenes).length,
         galleryRetrieved: images.length
       }
@@ -184,7 +203,7 @@ function buildApiInput(artifact: ExtractionArtifact, payloadValue: unknown): Dir
       propertyType: propertyType(type),
       operationType: 'SALE',
       price: {
-        amount: numberFromUnknown(currency === 'USD' ? property.usd_corriente : property.mxn_corriente),
+        amount: nonnegativeNumberFromUnknown(currency === 'USD' ? property.usd_corriente : property.mxn_corriente),
         currency
       },
       address: {
@@ -200,20 +219,20 @@ function buildApiInput(artifact: ExtractionArtifact, payloadValue: unknown): Dir
       },
       coordinates: coordinatesValue,
       details: {
-        landAreaM2: numberFromUnknown(property.m2_terreno),
-        constructionAreaM2: numberFromUnknown(property.m2_construccion),
-        bedrooms: numberFromUnknown(property.cuartos),
-        bathrooms: numberFromUnknown(property.banos),
-        parkingSpaces: numberFromUnknown(property.numero_estacionamientos),
+        landAreaM2: nonnegativeNumberFromUnknown(property.m2_terreno),
+        constructionAreaM2: nonnegativeNumberFromUnknown(property.m2_construccion),
+        bedrooms: nonnegativeIntegerFromUnknown(property.cuartos),
+        bathrooms: nonnegativeNumberFromUnknown(property.banos),
+        parkingSpaces: nonnegativeIntegerFromUnknown(property.numero_estacionamientos),
         parkingType: string(property.tipo_estacionamientos),
         serviceRoom: booleanSpanish(string(property.cuarto_de_servicio)),
-        propertyAgeYears: numberFromUnknown(property.edad_de_propiedad),
+        propertyAgeYears: nonnegativeIntegerFromUnknown(property.edad_de_propiedad),
         condition: string(property.conservacion),
         orientation: string(property.orientacion),
         landUse: string(property.uso_suelo),
-        buildingLevels: numberFromUnknown(property.niveles),
-        unitFloor: numberFromUnknown(property.nivel_encuentra),
-        maintenanceAmount: numberFromUnknown(property.mantenimiento),
+        buildingLevels: nonnegativeIntegerFromUnknown(property.niveles),
+        unitFloor: nonnegativeIntegerFromUnknown(property.nivel_encuentra),
+        maintenanceAmount: nonnegativeNumberFromUnknown(property.mantenimiento),
         maintenanceCurrency: string(property.moneda_mantenimiento)?.toUpperCase() ?? null
       },
       technicalSheetQrUrl: `https://api.remax.com.mx/files/qrlive/${encodeURIComponent(listingKey)}_QR.png`
@@ -359,7 +378,7 @@ function buildInput(artifact: ExtractionArtifact): DirectExtraction | null {
       propertyType: propertyType(type),
       operationType: 'SALE',
       price: {
-        amount: number(textByClass(artifact.html, 'jsPrecio')),
+        amount: nonnegativeNumber(textByClass(artifact.html, 'jsPrecio')),
         currency: textByClass(artifact.html, 'jsMoneda')?.toUpperCase() ?? null
       },
       address: {
@@ -376,20 +395,20 @@ function buildInput(artifact: ExtractionArtifact): DirectExtraction | null {
       },
       coordinates: coordinates(artifact.html),
       details: {
-        landAreaM2: number(textByClass(artifact.html, 'jsTerreno')),
-        constructionAreaM2: number(textByClass(artifact.html, 'jsConstruccion')),
-        bedrooms: integer(textByClass(artifact.html, 'jsCuartos')),
-        bathrooms: number(textByClass(artifact.html, 'jsBanos')),
-        parkingSpaces: integer(textByClass(artifact.html, 'jsEstacionamientos')),
+        landAreaM2: nonnegativeNumber(textByClass(artifact.html, 'jsTerreno')),
+        constructionAreaM2: nonnegativeNumber(textByClass(artifact.html, 'jsConstruccion')),
+        bedrooms: nonnegativeInteger(textByClass(artifact.html, 'jsCuartos')),
+        bathrooms: nonnegativeNumber(textByClass(artifact.html, 'jsBanos')),
+        parkingSpaces: nonnegativeInteger(textByClass(artifact.html, 'jsEstacionamientos')),
         parkingType: textByClass(artifact.html, 'jsTipoEstacionamientos'),
         serviceRoom: booleanSpanish(textByClass(artifact.html, 'jsCuartoServicio')),
-        propertyAgeYears: integer(textByClass(artifact.html, 'jsEdad')),
+        propertyAgeYears: nonnegativeInteger(textByClass(artifact.html, 'jsEdad')),
         condition: textByClass(artifact.html, 'jsConservacion'),
         orientation: textByClass(artifact.html, 'jsOrientacion'),
         landUse: textByClass(artifact.html, 'jsUsoSuelo'),
         buildingLevels: levels?.[1] ? Number(levels[1]) : null,
         unitFloor: levels?.[2] ? Number(levels[2]) : null,
-        maintenanceAmount: number(maintenanceText),
+        maintenanceAmount: nonnegativeNumber(maintenanceText),
         maintenanceCurrency: maintenanceText?.match(/\b[A-Z]{3}\b/)?.[0] ?? null
       },
       technicalSheetQrUrl: qrUrl ? new URL(decodeEntities(qrUrl), artifact.url).toString() : null

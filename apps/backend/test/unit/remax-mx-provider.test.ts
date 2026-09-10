@@ -141,7 +141,7 @@ test("enriches RE/MAX's empty server HTML from its structured listing endpoint",
               numero_estacionamientos: '1',
               tipo_estacionamientos: 'Cubierto',
               cuarto_de_servicio: 'No',
-              edad_de_propiedad: '1',
+              edad_de_propiedad: '-1',
               conservacion: 'Excelente',
               orientacion: 'Oriente',
               uso_suelo: 'Habitacional',
@@ -181,6 +181,7 @@ test("enriches RE/MAX's empty server HTML from its structured listing endpoint",
   );
   assert.equal(result.input.property.description, 'Departamento de 115m2.');
   assert.equal(result.input.property.details.unitFloor, 3);
+  assert.equal(result.input.property.details.propertyAgeYears, null);
   assert.equal(result.input.contact.agentAvatarUrl, 'https://cdn.remax.com.mx/agentes/1770235711.jpg');
   assert.equal(result.input.contact.sourceOfficeId, '451');
   assert.deepEqual(result.input.contact.phones, ['5589527336', '5531054496']);

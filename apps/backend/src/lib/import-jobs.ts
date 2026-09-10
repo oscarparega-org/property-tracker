@@ -4,11 +4,17 @@ import { upsertProperty } from './property-store.js';
 import { enabledProviderCredential, markProviderCredentialInvalid } from './provider-credentials.js';
 import { importDebug } from './import-debug.js';
 import { resolveImportProvider } from './import-providers/registry.js';
+import { upsertCatalogProperty } from './catalog-store.js';
+
+export function importRetryAt(retryCount: number, now = new Date()) {
+  const delayMs = Math.min(15 * 60_000, 60_000 * 2 ** Math.max(0, retryCount - 1));
+  return new Date(now.valueOf() + delayMs);
+}
 
 export async function processImportJob(db: PrismaClient, id: string, extract = extractProperty) {
   const startedAt = Date.now();
   const claimed = await db.propertyImport.updateMany({
-    where: { id, status: 'QUEUED' },
+    where: { id, status: 'QUEUED', nextAttemptAt: { lte: new Date() } },
     data: { status: 'FETCHING', processingStartedAt: new Date(), errorMessage: null }
   });
   if (!claimed.count) {
@@ -90,7 +96,20 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
       const stored =
         job.kind === 'ENHANCEMENT'
           ? { property: await tx.property.findFirstOrThrow({ where: { id: job.propertyId!, ownerId: job.ownerId } }) }
-          : await upsertProperty(tx, result.input, job.ownerId);
+          : job.kind === 'CATALOG'
+            ? {
+                property: {
+                  id: (
+                    await upsertCatalogProperty(
+                      tx,
+                      result.input,
+                      'admin-imports',
+                      job.publishOnReady ? 'ACTIVE' : 'DRAFT'
+                    )
+                  ).propertyId
+                }
+              }
+            : await upsertProperty(tx, result.input, job.ownerId);
       if (job.kind === 'STANDARD') {
         await tx.searchProperty.createMany({
           data: targets.map((target) => ({
@@ -145,6 +164,7 @@ export async function processImportJob(db: PrismaClient, id: string, extract = e
       data: {
         retryCount,
         status: retryCount < 3 ? 'QUEUED' : 'FAILED',
+        nextAttemptAt: retryCount < 3 ? importRetryAt(retryCount) : new Date(),
         processingStartedAt: null,
         completedAt: retryCount < 3 ? null : new Date(),
         errorMessage:
@@ -178,6 +198,7 @@ export async function recoverStaleImports(db: PrismaClient) {
       data: {
         status: job.retryCount >= 2 ? 'FAILED' : 'QUEUED',
         retryCount: { increment: 1 },
+        nextAttemptAt: job.retryCount >= 2 ? new Date() : importRetryAt(job.retryCount + 1),
         processingStartedAt: null,
         completedAt: job.retryCount >= 2 ? new Date() : null,
         errorMessage: 'Trabajo interrumpido; recuperado por el procesador.'

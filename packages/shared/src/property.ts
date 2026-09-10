@@ -55,13 +55,14 @@ export type PropertyDto = {
   rejectionReason: string | null;
   archivedAt: string | null;
   publicationStatus: 'DRAFT' | 'PUBLISHED';
+  catalogStatus: 'DRAFT' | 'ACTIVE' | 'UNAVAILABLE' | null;
   createdAt: string;
   updatedAt: string;
   images: { id: string; propertyId: string; url: string; alt: string | null; sortOrder: number }[];
   features: { id: string; propertyId: string; category: 'AREA' | 'EQUIPMENT' | 'OTHER'; name: string }[];
 };
 export type ImportStatus = 'QUEUED' | 'FETCHING' | 'RENDERING' | 'EXTRACTING' | 'READY' | 'FAILED';
-export type ImportKind = 'STANDARD' | 'ENHANCEMENT';
+export type ImportKind = 'STANDARD' | 'ENHANCEMENT' | 'CATALOG';
 export type ImportJobDto = {
   id: string;
   kind: ImportKind;

@@ -7,7 +7,7 @@ import { authClient } from '@/lib/auth-client';
 import { MaterialIcon } from '@/components/material-icon';
 import { mainContentId } from '@/components/skip-link';
 
-export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
+export function AuthForm({ mode, returnTo = '/' }: { mode: 'sign-in' | 'sign-up'; returnTo?: string }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -32,7 +32,7 @@ export function AuthForm({ mode }: { mode: 'sign-in' | 'sign-up' }) {
         setError(result.error.message || 'No fue posible iniciar sesión.');
         return;
       }
-      router.push('/');
+      router.push(returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/');
       router.refresh();
     } catch {
       setError('No pudimos conectar con el servidor. Intenta de nuevo.');

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PropertyDto, SearchDto } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
+import { invalidateProperties } from '@/lib/property-cache';
 
 export function PropertyMemberships({ property }: { property: PropertyDto }) {
   const router = useRouter();
@@ -31,6 +32,15 @@ export function PropertyMemberships({ property }: { property: PropertyDto }) {
           setMessage('');
           try {
             if (!selected.length) {
+              if (property.catalogStatus) {
+                await Promise.all(
+                  property.memberships.map((membership) =>
+                    requestApi(`/api/searches/${membership.searchId}/properties/${property.id}`, { method: 'DELETE' })
+                  )
+                );
+                router.replace(property.searchId ? `/searches/${property.searchId}` : '/');
+                return;
+              }
               await requestApi(`/api/properties/${property.id}`, {
                 method: 'DELETE',
                 body: JSON.stringify({ confirmationTitle })
@@ -45,7 +55,7 @@ export function PropertyMemberships({ property }: { property: PropertyDto }) {
             if (updated.searchId && updated.searchId !== property.searchId) {
               router.replace(`/searches/${updated.searchId}/properties/${property.id}`);
             } else {
-              window.dispatchEvent(new Event('properties-changed'));
+              invalidateProperties();
             }
             setMessage('Búsquedas actualizadas.');
           } catch (cause) {
@@ -77,7 +87,7 @@ export function PropertyMemberships({ property }: { property: PropertyDto }) {
             </button>
           </p>
         ) : null}
-        {!selected.length ? (
+        {!selected.length && !property.catalogStatus ? (
           <label>
             <span>Escribe {property.title} para eliminar esta propiedad</span>
             <input
@@ -89,7 +99,11 @@ export function PropertyMemberships({ property }: { property: PropertyDto }) {
           </label>
         ) : null}
         <button className={`button${selected.length ? '' : ' danger'}`} type="submit">
-          {selected.length ? 'Guardar búsquedas' : 'Eliminar propiedad'}
+          {selected.length
+            ? 'Guardar búsquedas'
+            : property.catalogStatus
+              ? 'Quitar de mis búsquedas'
+              : 'Eliminar propiedad'}
         </button>
         {message ? <p role="status">{message}</p> : null}
       </form>

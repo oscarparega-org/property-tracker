@@ -1,11 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { PropertyDto } from '@house-tracker/shared';
-import { requestApi } from '@/lib/request-api';
 import { PropertyWorkspace } from './property-workspace';
 import { PropertyDetail } from './property-detail';
 import { ReviewPropertyEditor } from './review-property-editor';
 import { DraftList } from './draft-list';
+import { subscribeToPropertyInvalidation } from '@/lib/property-cache';
+import { useApiResource } from '@/lib/use-api-resource';
 
 export function PropertyPage({
   id,
@@ -18,35 +19,18 @@ export function PropertyPage({
   mode?: 'list' | 'detail' | 'review' | 'drafts';
   initialView?: 'board' | 'list';
 }) {
-  const [data, setData] = useState<PropertyDto[] | null>(null);
-  const [error, setError] = useState('');
-  const [revision, setRevision] = useState(0);
   const base = `/api/searches/${encodeURIComponent(searchId)}/properties`;
   const path = id
     ? `${base}/${encodeURIComponent(id)}`
     : `${base}?publicationStatus=${mode === 'drafts' ? 'DRAFT' : 'PUBLISHED'}`;
-  useEffect(() => {
-    const refresh = () => setRevision((value) => value + 1);
-    window.addEventListener('properties-changed', refresh);
-    return () => window.removeEventListener('properties-changed', refresh);
-  }, []);
-  useEffect(() => {
-    const controller = new AbortController();
-    setError('');
-    void requestApi<PropertyDto | PropertyDto[]>(path, { signal: controller.signal })
-      .then((value) => {
-        if (!controller.signal.aborted) setData(Array.isArray(value) ? value : [value]);
-      })
-      .catch((cause) => {
-        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'No fue posible cargar.');
-      });
-    return () => controller.abort();
-  }, [path, revision]);
+  const { data: resource, error, refresh } = useApiResource<PropertyDto | PropertyDto[]>(path);
+  const data = resource === null ? null : Array.isArray(resource) ? resource : [resource];
+  useEffect(() => subscribeToPropertyInvalidation(refresh), [refresh]);
   if (error)
     return (
       <div className="empty-state">
         <p role="alert">{error}</p>
-        <button className="button" onClick={() => setRevision((value) => value + 1)}>
+        <button className="button" onClick={refresh}>
           Reintentar
         </button>
       </div>

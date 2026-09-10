@@ -10,3 +10,4 @@ export * from './property-editor.js';
 export * from './property-requests.js';
 export * from './provider-settings.js';
 export * from './search.js';
+export * from './catalog.js';

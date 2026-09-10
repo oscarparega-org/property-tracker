@@ -19,6 +19,8 @@
     "test:e2e": "npm run test:e2e --workspace=house-tracker-backend",
     "test:browser": "playwright test",
     "worker:imports": "npm run worker:imports --workspace=house-tracker-backend",
+    "catalog:sync": "npm run catalog:sync --workspace=house-tracker-backend",
+    "admin:seed": "npm run admin:seed --workspace=house-tracker-backend",
     "db:generate": "turbo db:generate --cache-dir=.turbo/cache",
     "db:migrate": "turbo db:migrate --cache-dir=.turbo/cache",
     "deploy:coolify": "node scripts/coolify.mjs",
@@ -27,6 +29,7 @@
     "wt:init": "node scripts/worktree.mjs init",
     "wt:dev": "node scripts/worktree.mjs dev",
     "wt:seed": "node scripts/worktree.mjs seed",
+    "wt:catalog-sync": "node scripts/worktree.mjs catalog-sync",
     "wt:down": "node scripts/worktree.mjs down",
     "wt:status": "node scripts/worktree.mjs status",
     "wt:remove": "node scripts/worktree.mjs remove"

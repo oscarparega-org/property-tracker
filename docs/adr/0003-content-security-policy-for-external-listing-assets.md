@@ -10,13 +10,13 @@ House Tracker renders images hosted by property publishers and loads OpenStreetM
 
 ## Decision
 
-Send a Content Security Policy and complementary browser security headers from Next.js. Allow HTTPS images, the configured API origin, OpenStreetMap tiles, and same-origin workers. Deny frames, objects, camera, microphone, and geolocation.
+Send a request-scoped, nonce-based Content Security Policy and complementary browser security headers from the Next.js proxy. Render application routes dynamically so Next.js can attach that nonce to its bootstrap and client-bundle scripts. Allow HTTPS images, the configured API origin, OpenStreetMap tiles, and same-origin workers. Deny frames, objects, camera, microphone, and geolocation.
 
 ## Consequences
 
 - Browser resource loading is restricted without breaking current providers.
 - Any future external script, connection, map source, or embedded content requires an explicit policy change.
-- Inline scripts and styles remain allowed for Next.js compatibility; nonce-based CSP can replace this if stronger script controls become necessary.
+- Scripts and styles must carry the per-request nonce; arbitrary inline execution is blocked. This gives up static route generation because the nonce must be created for each response.
 - Transport security remains the deployment proxy's responsibility so local production-mode browser tests can continue using HTTP.
 
 ## Alternatives considered

@@ -3,12 +3,18 @@ import { ActionForm } from '@/components/action-form';
 import { localDateInput } from '@/lib/date-input';
 
 import { useEffect, useRef, useState } from 'react';
-import { savePropertyAction, setArchivedAction } from '@/lib/property-actions';
+import { saveCatalogPropertyAction, savePropertyAction, setArchivedAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
 import type { PropertyDto, SearchDto } from '@house-tracker/shared';
 import { ConfirmationDialog } from '@/components/confirmation-dialog';
 
-type Props = { property: PropertyDto; onClose: () => void; creating?: boolean; searchOptions?: SearchDto[] };
+type Props = {
+  property: PropertyDto;
+  onClose: () => void;
+  creating?: boolean;
+  searchOptions?: SearchDto[];
+  catalogAdmin?: boolean;
+};
 
 const statuses = [
   ['NEW', 'Nueva'],
@@ -60,7 +66,13 @@ function TextArea({
   );
 }
 
-export function PropertyEditor({ property, onClose, creating = false, searchOptions = [] }: Props) {
+export function PropertyEditor({
+  property,
+  onClose,
+  creating = false,
+  searchOptions = [],
+  catalogAdmin = false
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [dirty, setDirty] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -106,7 +118,13 @@ export function PropertyEditor({ property, onClose, creating = false, searchOpti
           </button>
         </div>
 
-        <ActionForm action={savePropertyAction} className="editor-form" onChange={() => setDirty(true)}>
+        <ActionForm
+          action={catalogAdmin ? saveCatalogPropertyAction : savePropertyAction}
+          className="editor-form"
+          onChange={() => setDirty(true)}
+          redirectOnPublication={!catalogAdmin}
+          onSuccess={catalogAdmin ? (saved) => window.location.assign(`/catalog/${saved.id}`) : undefined}
+        >
           <input type="hidden" name="id" value={property.id} />
           <input type="hidden" name="searchId" value={property.searchId ?? ''} />
           {creating ? (
@@ -339,7 +357,7 @@ export function PropertyEditor({ property, onClose, creating = false, searchOpti
           </div>
         </ActionForm>
 
-        {!creating && (
+        {!creating && !catalogAdmin && (
           <ActionForm
             action={setArchivedAction.bind(null, property.id, !property.archivedAt, property.searchId)}
             className="archive-action"

@@ -39,6 +39,7 @@ async function fetchPublic(
     method?: 'GET' | 'POST';
     referer?: string;
     body?: string;
+    contentType?: string;
     accept: string;
     expectedContentTypes: string[];
   }
@@ -52,7 +53,7 @@ async function fetchPublic(
       'user-agent': 'Mozilla/5.0 (compatible; HouseTracker/1.0; +property import)',
       accept: request.accept
     };
-    if (request.body !== undefined) headers['content-type'] = 'application/json';
+    if (request.body !== undefined) headers['content-type'] = request.contentType ?? 'application/json';
     if (referer) {
       headers.referer = referer;
       headers.origin = new URL(referer).origin;
@@ -97,6 +98,22 @@ export async function fetchPublicJson(
   const result = await fetchPublic(value, {
     ...options,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    accept: 'application/json, text/plain, */*',
+    expectedContentTypes: ['application/json']
+  });
+  try {
+    return { url: result.url, data: JSON.parse(result.body) as unknown };
+  } catch {
+    throw new Error('El portal devolvió datos JSON inválidos.');
+  }
+}
+
+export async function fetchPublicFormJson(value: string, fields: Record<string, string>, referer?: string) {
+  const result = await fetchPublic(value, {
+    method: 'POST',
+    referer,
+    body: new URLSearchParams(fields).toString(),
+    contentType: 'application/x-www-form-urlencoded;charset=UTF-8',
     accept: 'application/json, text/plain, */*',
     expectedContentTypes: ['application/json']
   });

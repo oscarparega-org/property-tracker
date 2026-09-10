@@ -12,6 +12,9 @@ const environment = {
   DEPLOY_BASE_DOMAIN: 'example.test',
   COOLIFY_WRITE_TOKEN: 'write-token',
   COOLIFY_DEPLOY_TOKEN: 'deploy-token',
+  ADMIN_EMAIL: 'admin@example.test',
+  ADMIN_NAME: 'Admin Test',
+  ADMIN_PASSWORD: 'admin-password-123',
   PROVIDER_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64')
 };
 
@@ -23,6 +26,8 @@ test('derives deterministic development resource names', () => {
   assert.equal(config.frontendUrl, 'https://house-tracking-dev.example.test');
   assert.equal(config.apiPublicUrl, 'https://house-tracking-api-dev.example.test');
   assert.equal(config.displayName, 'House Tracker');
+  assert.equal(config.adminEmail, 'admin@example.test');
+  assert.equal(config.adminName, 'Admin Test');
 });
 
 test('rejects repository names that cannot be DNS labels', () => {
@@ -42,6 +47,18 @@ test('rejects a provider credential key that is not canonical base64 encoding at
     () => buildDeploymentConfig({ ...environment, PROVIDER_CREDENTIAL_ENCRYPTION_KEY: 'too-short' }),
     /canonical base64 encoding at least 32 bytes/
   );
+});
+
+test('rejects multiple configured admin emails', () => {
+  assert.throws(
+    () => buildDeploymentConfig({ ...environment, ADMIN_EMAIL: 'one@example.test,two@example.test' }),
+    /exactly one email address/
+  );
+});
+
+test('requires a complete initial admin configuration', () => {
+  assert.throws(() => buildDeploymentConfig({ ...environment, ADMIN_NAME: '' }), /ADMIN_NAME/);
+  assert.throws(() => buildDeploymentConfig({ ...environment, ADMIN_PASSWORD: 'short' }), /between 8 and 128/);
 });
 
 test('does not leak token values in HTTP errors', async () => {
@@ -86,6 +103,23 @@ test('reuses an existing project by name regardless of its description', async (
     is_buildtime: true,
     is_runtime: true,
     is_preview: false
+  });
+  const adminEmail = environmentUpdate[2].data.find(({ key }) => key === 'ADMIN_EMAIL');
+  assert.deepEqual(adminEmail, {
+    key: 'ADMIN_EMAIL',
+    value: config.adminEmail,
+    is_buildtime: false,
+    is_runtime: true,
+    is_preview: false
+  });
+  const adminPassword = environmentUpdate[2].data.find(({ key }) => key === 'ADMIN_PASSWORD');
+  assert.deepEqual(adminPassword, {
+    key: 'ADMIN_PASSWORD',
+    value: config.adminPassword,
+    is_buildtime: false,
+    is_runtime: true,
+    is_preview: false,
+    is_literal: true
   });
   const providerCredentialEncryptionKey = environmentUpdate[2].data.find(
     ({ key }) => key === 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY'

@@ -25,7 +25,7 @@ async function ensureDevelopmentSeed() {
     }
   });
 
-  console.log(`[seed] Ready: ${email} / ${password}`);
+  console.log(`[seed] Development data ready for ${email}.`);
 }
 
 ensureDevelopmentSeed()

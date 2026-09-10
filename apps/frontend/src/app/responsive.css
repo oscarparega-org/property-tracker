@@ -1,0 +1,707 @@
+/* Mobile interaction layer: phone and tablet layouts never require sideways navigation. */
+.mobile-navigation,
+.mobile-workspace-heading,
+.mobile-filter-button,
+.mobile-process-list,
+.mobile-decision-trigger {
+  display: none;
+}
+.desktop-filter-controls {
+  display: contents;
+}
+.desktop-filter-controls > label:not(.check-filter) {
+  display: contents;
+}
+.desktop-filter-controls > label:not(.check-filter) > span,
+.kanban-card-actions label > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.card-select,
+.kanban-card-main,
+.draft-card {
+  color: inherit;
+  text-decoration: none;
+}
+.editor-modal {
+  margin: auto;
+}
+.editor-modal::backdrop,
+.filter-sheet::backdrop,
+.confirmation-dialog::backdrop,
+.decision-dialog::backdrop,
+.carousel-backdrop::backdrop {
+  background: rgba(10, 20, 16, 0.72);
+  backdrop-filter: blur(5px);
+}
+.editor-modal:not([open]),
+.filter-sheet:not([open]),
+.confirmation-dialog:not([open]),
+.decision-dialog:not([open]),
+.carousel-backdrop:not([open]) {
+  display: none;
+}
+.editor-section {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0;
+}
+.editor-section > summary {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: 3px;
+  padding: 14px 2px;
+  cursor: pointer;
+  list-style: none;
+}
+.editor-section > summary::-webkit-details-marker {
+  display: none;
+}
+.editor-section > summary::after {
+  content: '+';
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: 24px;
+}
+.editor-section[open] > summary::after {
+  content: '−';
+}
+.editor-section > summary span {
+  font: 18px var(--font-display);
+}
+.editor-section > summary small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.editor-section > .field-grid {
+  padding: 4px 0 22px;
+}
+.confirmation-dialog {
+  width: min(440px, calc(100% - 32px));
+  margin: auto;
+  padding: 26px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.confirmation-dialog > .icon-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+.confirmation-dialog h2 {
+  max-width: calc(100% - 42px);
+  margin: 0 0 9px;
+  font: 27px/1.1 var(--font-display);
+}
+.confirmation-dialog p {
+  margin: 0;
+  color: var(--muted);
+}
+.confirmation-dialog > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 24px;
+}
+.button.danger {
+  background: var(--danger);
+  color: white;
+}
+.decision-dialog {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: var(--ink);
+  color: white;
+  overflow: auto;
+  box-shadow: var(--shadow);
+}
+.decision-dialog .decision-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+}
+.decision-dialog .icon-button {
+  flex: 0 0 auto;
+  border-color: #ffffff55;
+  background: #ffffff12;
+  color: white;
+}
+.draft-card-action {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .authenticated-shell {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .mobile-navigation {
+    position: fixed;
+    z-index: 45;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    min-height: calc(64px + env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 5px 6px calc(5px + env(safe-area-inset-bottom));
+    border-top: 1px solid #35433c;
+    background: rgba(23, 35, 31, 0.98);
+    box-shadow: 0 -8px 24px #07100c24;
+  }
+  .mobile-navigation a {
+    min-width: 0;
+    min-height: 54px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 3px;
+    border-radius: 12px;
+    color: #bfc8c3;
+    font-size: 11px;
+    text-decoration: none;
+  }
+  .mobile-navigation a[aria-current='page'] {
+    background: #2c3a33;
+    color: var(--lime);
+  }
+  .mobile-navigation .material-icon {
+    font-size: 23px;
+  }
+  .button,
+  .icon-button,
+  .account-menu summary {
+    min-height: 44px;
+  }
+  .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+  .app-shell {
+    height: auto;
+    min-height: calc(100dvh - var(--app-header-height));
+    display: block;
+  }
+  .workspace-toolbar {
+    display: none;
+  }
+  .mobile-workspace-heading {
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px 4px;
+  }
+  .mobile-workspace-heading div {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .mobile-workspace-heading span {
+    font: 34px var(--font-display);
+  }
+  .mobile-workspace-heading strong {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .mobile-workspace-heading > a {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--lime);
+    color: var(--ink);
+    font-size: 25px;
+  }
+  .filterbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 14px 14px;
+    border: 0;
+    overflow: visible;
+    background: var(--paper);
+  }
+  .search-box {
+    width: 100%;
+    min-width: 0;
+    height: 48px;
+  }
+  .desktop-filter-controls {
+    display: none;
+  }
+  .mobile-filter-button {
+    min-width: 96px;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--panel);
+    color: var(--ink);
+    font-weight: 750;
+  }
+  .mobile-filter-button span {
+    min-width: 21px;
+    height: 21px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--orange);
+    color: white;
+    font-size: 11px;
+  }
+  .filter-sheet {
+    width: min(540px, 100%);
+    max-width: none;
+    max-height: min(720px, calc(100dvh - 18px));
+    margin: auto auto 0;
+    padding: 0;
+    border: 0;
+    border-radius: 22px 22px 0 0;
+    background: var(--panel);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .filter-sheet > header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    padding: 20px 18px 15px;
+    border-bottom: 1px solid var(--line);
+  }
+  .filter-sheet header span {
+    color: var(--orange);
+    font-size: 12px;
+    font-weight: 750;
+  }
+  .filter-sheet h2 {
+    margin: 3px 0 0;
+    font: 27px var(--font-display);
+  }
+  .filter-sheet-fields {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    overflow-y: auto;
+  }
+  .filter-sheet-fields > label:not(.check-filter) {
+    display: grid;
+    gap: 6px;
+  }
+  .filter-sheet-fields > label > span {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .filter-sheet-fields select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: white;
+    color: var(--ink);
+  }
+  .filter-sheet-fields .workspace-multi-filter,
+  .filter-sheet-fields .workspace-range-filter {
+    min-width: 0;
+  }
+  .filter-sheet-fields .workspace-multi-filter legend,
+  .filter-sheet-fields .workspace-range-filter legend {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    margin-bottom: 7px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .filter-sheet-fields .workspace-multi-filter > div {
+    flex-wrap: wrap;
+  }
+  .filter-sheet-fields .workspace-range-filter input {
+    width: 100%;
+  }
+  .filter-sheet-fields .check-filter {
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f0eee6;
+  }
+  .filter-sheet-fields .check-filter input {
+    width: 22px;
+    height: 22px;
+  }
+  .filter-sheet > footer {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .filter-sheet > footer .button {
+    min-height: 48px;
+  }
+  .board-shell {
+    display: block;
+    overflow: visible;
+  }
+  .kanban-board {
+    display: none;
+  }
+  .mobile-process-list {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px 24px;
+  }
+  .mobile-stage {
+    --stage: #d9d4c7;
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--stage);
+    border-radius: 14px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .mobile-stage.tone-blue {
+    --stage: #72a7d8;
+  }
+  .mobile-stage.tone-violet {
+    --stage: #8e8cdd;
+  }
+  .mobile-stage.tone-purple {
+    --stage: #b086ca;
+  }
+  .mobile-stage.tone-orange {
+    --stage: #ef855f;
+  }
+  .mobile-stage.tone-green {
+    --stage: #54ad7c;
+  }
+  .mobile-stage.tone-red {
+    --stage: #cf7668;
+  }
+  .mobile-stage > summary {
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 13px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .mobile-stage > summary::-webkit-details-marker {
+    display: none;
+  }
+  .stage-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--stage);
+  }
+  .mobile-stage summary span:nth-child(2) {
+    display: grid;
+    gap: 2px;
+  }
+  .mobile-stage summary strong {
+    font: 18px var(--font-display);
+  }
+  .mobile-stage summary small {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .mobile-stage summary b {
+    min-width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #eceae2;
+    font-size: 12px;
+  }
+  .mobile-stage-cards {
+    display: grid;
+    gap: 10px;
+    padding: 0 10px 10px;
+  }
+  .mobile-stage-cards > p {
+    margin: 0;
+    padding: 10px 2px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .mobile-stage .kanban-card {
+    margin: 0;
+  }
+  .mobile-stage .kanban-card-main {
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr);
+  }
+  .mobile-stage .kanban-card-image {
+    height: auto;
+    min-height: 142px;
+  }
+  .mobile-stage .kanban-card-actions {
+    min-height: 56px;
+  }
+  .mobile-stage .kanban-card-actions select,
+  .mobile-stage .kanban-card-actions a {
+    min-height: 44px;
+  }
+  .mobile-stage .kanban-card-actions a {
+    width: 44px;
+    height: 44px;
+  }
+  .list-pane {
+    overflow: visible;
+    border: 0;
+  }
+  .workspace {
+    min-height: auto;
+  }
+  .body-navigation nav {
+    display: none;
+  }
+  .body-navigation {
+    justify-content: flex-start;
+  }
+  .body-back {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .add-tabs a {
+    min-height: 48px;
+    display: grid;
+    place-items: center;
+  }
+  .full-contact a,
+  .source-buttons a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .maplibregl-ctrl-group button {
+    width: 44px;
+    height: 44px;
+  }
+  .decision-panel {
+    display: none;
+  }
+  .mobile-decision-trigger {
+    position: fixed;
+    z-index: 42;
+    right: 14px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 24px;
+    background: var(--lime);
+    color: var(--ink);
+    box-shadow: 0 8px 28px #07100c42;
+    font-weight: 800;
+  }
+  .property-full {
+    grid-row: 2;
+  }
+  .decision-dialog {
+    width: min(560px, 100%);
+    max-height: calc(100dvh - 12px);
+    margin: auto auto 0;
+    border-radius: 22px 22px 0 0;
+  }
+  .decision-dialog .decision-form {
+    grid-template-columns: 1fr;
+  }
+  .decision-dialog .decision-heading {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--ink);
+  }
+  .editor-modal {
+    width: min(720px, 100%);
+    max-width: none;
+    max-height: 100dvh;
+    height: 100dvh;
+    margin: 0 0 0 auto;
+    border-radius: 0;
+  }
+  .editor-section > summary {
+    min-height: 72px;
+  }
+  .modal-actions {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+  .integration-actions .button {
+    min-height: 46px;
+  }
+  .drafts-heading {
+    align-items: start;
+  }
+}
+
+@media (max-width: 620px) {
+  .auth-story {
+    min-height: 104px;
+    padding: 18px 20px;
+  }
+  .auth-story-copy,
+  .auth-stages {
+    display: none;
+  }
+  .auth-form {
+    padding-top: 28px;
+  }
+  .card-select {
+    display: block;
+  }
+  .mobile-stage .kanban-card {
+    display: block;
+  }
+  .mobile-stage .kanban-card-image {
+    grid-row: auto;
+  }
+  .card-image-wrap {
+    min-height: 196px;
+  }
+  .card-copy {
+    padding: 16px 56px 18px 16px;
+  }
+  .favorite-button {
+    width: 44px;
+    height: 44px;
+  }
+  .drafts-heading {
+    display: grid;
+    gap: 12px;
+  }
+  .drafts-heading .button {
+    width: 100%;
+    min-height: 48px;
+    display: grid;
+    place-items: center;
+  }
+  .draft-card {
+    min-height: 0;
+    grid-template-columns: 1fr;
+  }
+  .draft-card > img,
+  .draft-card > .image-placeholder {
+    height: 180px;
+  }
+  .draft-card > div:last-child {
+    padding: 16px;
+  }
+  .draft-card-action {
+    min-height: 44px;
+  }
+  .integration-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .integration-actions .button,
+  .integration-actions .text-button {
+    width: 100%;
+    min-height: 48px;
+  }
+  .full-fact span,
+  .decision-form label > span,
+  .field-grid label > span {
+    font-size: 11px;
+  }
+  .field-grid input,
+  .field-grid select,
+  .field-grid textarea,
+  .decision-form input,
+  .decision-form select,
+  .decision-form textarea,
+  .integration-card input,
+  .integration-card select,
+  .url-input input {
+    font-size: 16px;
+  }
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .modal-actions .button {
+    min-height: 48px;
+  }
+  .modal-actions .button.primary:last-child {
+    grid-column: 1 / -1;
+  }
+  .confirmation-dialog {
+    padding: 24px 18px 18px;
+  }
+  .confirmation-dialog > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .confirmation-dialog .button {
+    min-height: 48px;
+  }
+  .carousel-backdrop[open] {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 10px;
+    border: 0;
+  }
+  .carousel-stage {
+    touch-action: pan-y;
+  }
+  .detail-section {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+  .detail-page .body-navigation {
+    padding-left: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

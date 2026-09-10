@@ -9,6 +9,7 @@ import type {
 } from '@house-tracker/shared';
 import { requestApi } from '@/lib/request-api';
 import { MaterialIcon } from './material-icon';
+import { invalidateProperties } from '@/lib/property-cache';
 
 export function PropertyEnhancement({ propertyId }: { propertyId: string }) {
   const [capability, setCapability] = useState<EnhancementCapabilityDto | null>(null);
@@ -129,7 +130,7 @@ export function PropertyEnhancement({ propertyId }: { propertyId: string }) {
                   await requestApi(`/api/enhancements/${preview.importId}/apply`, { method: 'POST' });
                   setPreview(null);
                   setMessage('La información nueva fue aplicada.');
-                  window.setTimeout(() => window.dispatchEvent(new Event('properties-changed')), 800);
+                  window.setTimeout(invalidateProperties, 800);
                 } catch (cause) {
                   setError(cause instanceof Error ? cause.message : 'No fue posible aplicar la mejora.');
                 } finally {
