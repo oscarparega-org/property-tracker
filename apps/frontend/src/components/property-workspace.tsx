@@ -1,149 +1,19 @@
 'use client';
-import { ActionForm } from '@/components/action-form';
-
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { setDecisionStatusAction, toggleFavoriteAction } from '@/lib/property-actions';
+import { setDecisionStatusAction } from '@/lib/property-actions';
 import { MaterialIcon } from '@/components/material-icon';
 import type { PropertyDto } from '@house-tracker/shared';
 import { PropertyEditor } from '@/components/property-editor';
 import { PropertyMap } from '@/components/property-map';
 import { PropertyBoard } from '@/components/property-board';
 import { SearchContextBar } from '@/components/search-context-bar';
+import { formatMoney, propertyTypeLabels } from '@/lib/property-format';
+import { filterProperties, type BathroomToken, type PropertySort, type ThresholdToken } from '@/lib/property-filtering';
+import { decisionStatusLabels, SearchPropertyCard } from './search-property-card';
+import { FilterDialog, MultiFilter, RangeInputs } from './workspace-filter-controls';
 
 type ViewMode = 'board' | 'split' | 'list' | 'map';
-
-const statusLabels: Record<PropertyDto['decisionStatus'], string> = {
-  NEW: 'Nueva',
-  CONTACTED: 'Contactada',
-  VISIT_SCHEDULED: 'Visita agendada',
-  VISITED: 'Visitada',
-  OFFER_MADE: 'Oferta enviada',
-  REJECTED: 'Descartada',
-  PURCHASED: 'Comprada'
-};
-
-const typeLabels: Record<PropertyDto['propertyType'], string> = {
-  APARTMENT: 'Departamento',
-  HOUSE: 'Casa',
-  LAND: 'Terreno',
-  OTHER: 'Otro'
-};
-
-function money(amount: number | null, currency: string | null) {
-  if (amount === null) return 'Precio por confirmar';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency ?? 'MXN',
-    maximumFractionDigits: 0
-  }).format(amount);
-}
-
-function Metric({ value, label }: { value: string | number | null; label: string }) {
-  return (
-    <span className="metric">
-      <strong>{value ?? '—'}</strong>
-      <small>{label}</small>
-    </span>
-  );
-}
-
-function PropertyCard({ property, searchId }: { property: PropertyDto; searchId: string }) {
-  const hero = property.images[0];
-  return (
-    <article className={`property-card${property.archivedAt ? ' is-archived' : ''}`}>
-      <Link
-        className="card-select"
-        href={`/searches/${searchId}/properties/${property.id}`}
-        aria-label={`Ver ${property.title}`}
-      >
-        <div className="card-image-wrap">
-          {hero ? (
-            // Listing images can come from arbitrary model-provided domains.
-            <img src={hero.url} alt={hero.alt ?? property.title} className="card-image" />
-          ) : (
-            <div className="image-placeholder">Sin foto</div>
-          )}
-          <span className={`status-badge status-${property.decisionStatus.toLowerCase()}`}>
-            {statusLabels[property.decisionStatus]}
-          </span>
-          {property.archivedAt && <span className="archived-badge">Archivada</span>}
-        </div>
-        <div className="card-copy">
-          <span className="card-type">{typeLabels[property.propertyType]}</span>
-          <h2>{property.title}</h2>
-          <p className="address">{property.formattedAddress ?? property.neighborhood ?? 'Ubicación pendiente'}</p>
-          <strong className="price">{money(property.priceAmount, property.priceCurrency)}</strong>
-          <div className="metrics">
-            <Metric value={property.bedrooms} label="rec." />
-            <Metric value={property.bathrooms} label="baños" />
-            <Metric value={property.parkingSpaces} label="autos" />
-            <Metric value={property.constructionAreaM2 ? `${property.constructionAreaM2} m²` : null} label="const." />
-          </div>
-          {property.latitude === null && (
-            <span className="no-location">
-              <MaterialIcon name="locationOff" /> Sin ubicación en mapa
-            </span>
-          )}
-        </div>
-      </Link>
-
-      <div className="card-actions">
-        <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite, searchId)}>
-          <button
-            className={`favorite-button${property.isFavorite ? ' is-active' : ''}`}
-            type="submit"
-            aria-label={property.isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-          >
-            <MaterialIcon name={property.isFavorite ? 'favorite' : 'favoriteBorder'} />
-          </button>
-        </ActionForm>
-      </div>
-    </article>
-  );
-}
-
-function FilterDialog({
-  children,
-  onClose,
-  onClear,
-  activeCount
-}: {
-  children: ReactNode;
-  onClose: () => void;
-  onClear: () => void;
-  activeCount: number;
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
-  return (
-    <dialog ref={dialogRef} className="filter-sheet" aria-labelledby="filter-sheet-title" onCancel={onClose}>
-      <header>
-        <div>
-          <span>{activeCount ? `${activeCount} activos` : 'Todas las propiedades'}</span>
-          <h2 id="filter-sheet-title">Filtrar propiedades</h2>
-        </div>
-        <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar filtros">
-          <MaterialIcon name="close" />
-        </button>
-      </header>
-      <div className="filter-sheet-fields">{children}</div>
-      <footer>
-        <button className="button subtle" type="button" onClick={onClear} disabled={!activeCount}>
-          Limpiar
-        </button>
-        <button className="button primary" type="button" onClick={onClose}>
-          Ver resultados
-        </button>
-      </footer>
-    </dialog>
-  );
-}
 
 export function PropertyWorkspace({
   initialProperties,
@@ -160,9 +30,14 @@ export function PropertyWorkspace({
   const [moveError, setMoveError] = useState('');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('ALL');
-  const [type, setType] = useState('ALL');
+  const [types, setTypes] = useState<PropertyDto['propertyType'][]>([]);
+  const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [minBedrooms, setMinBedrooms] = useState('');
+  const [bedrooms, setBedrooms] = useState<ThresholdToken[]>([]);
+  const [bathrooms, setBathrooms] = useState<BathroomToken[]>([]);
+  const [minArea, setMinArea] = useState('');
+  const [maxArea, setMaxArea] = useState('');
+  const [sort, setSort] = useState<PropertySort>('modified_desc');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -174,37 +49,64 @@ export function PropertyWorkspace({
   useEffect(() => setProperties(initialProperties), [initialProperties]);
   useEffect(() => setView(initialView), [initialView]);
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase('es-MX');
-    return properties.filter((property) => {
-      if (!showArchived && property.archivedAt) return false;
-      if (status !== 'ALL' && property.decisionStatus !== status) return false;
-      if (type !== 'ALL' && property.propertyType !== type) return false;
-      if (maxPrice && (property.priceAmount === null || property.priceAmount > Number(maxPrice))) return false;
-      if (minBedrooms && (property.bedrooms === null || property.bedrooms < Number(minBedrooms))) return false;
-      if (favoritesOnly && !property.isFavorite) return false;
-      if (!needle) return true;
-      return [property.title, property.neighborhood, property.formattedAddress, property.sourceListingKey]
-        .filter(Boolean)
-        .some((value) => value!.toLocaleLowerCase('es-MX').includes(needle));
-    });
-  }, [favoritesOnly, properties, maxPrice, minBedrooms, query, showArchived, status, type]);
+  const filtered = useMemo(
+    () =>
+      filterProperties(properties, {
+        query,
+        status,
+        types,
+        minPrice,
+        maxPrice,
+        bedrooms,
+        bathrooms,
+        minArea,
+        maxArea,
+        favoritesOnly,
+        showArchived,
+        sort
+      }),
+    [
+      properties,
+      query,
+      status,
+      types,
+      minPrice,
+      maxPrice,
+      bedrooms,
+      bathrooms,
+      minArea,
+      maxArea,
+      favoritesOnly,
+      showArchived,
+      sort
+    ]
+  );
 
   const editing = properties.find((property) => property.id === editingId) ?? null;
   const activeFilterCount = [
     status !== 'ALL',
-    type !== 'ALL',
+    types.length > 0,
+    Boolean(minPrice),
     Boolean(maxPrice),
-    Boolean(minBedrooms),
+    bedrooms.length > 0,
+    bathrooms.length > 0,
+    Boolean(minArea),
+    Boolean(maxArea),
+    sort !== 'modified_desc',
     favoritesOnly,
     showArchived
   ].filter(Boolean).length;
 
   function clearFilters() {
     setStatus('ALL');
-    setType('ALL');
+    setTypes([]);
+    setMinPrice('');
     setMaxPrice('');
-    setMinBedrooms('');
+    setBedrooms([]);
+    setBathrooms([]);
+    setMinArea('');
+    setMaxArea('');
+    setSort('modified_desc');
     setFavoritesOnly(false);
     setShowArchived(false);
   }
@@ -215,46 +117,49 @@ export function PropertyWorkspace({
         <span>Estado</span>
         <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Estado de decisión">
           <option value="ALL">Todos los estados</option>
-          {Object.entries(statusLabels).map(([value, label]) => (
+          {Object.entries(decisionStatusLabels).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
           ))}
         </select>
       </label>
+      <MultiFilter
+        label="Tipo"
+        values={Object.keys(propertyTypeLabels) as PropertyDto['propertyType'][]}
+        selected={types}
+        labels={propertyTypeLabels}
+        onChange={setTypes}
+      />
+      <RangeInputs
+        label="Precio"
+        minimum={minPrice}
+        maximum={maxPrice}
+        setMinimum={setMinPrice}
+        setMaximum={setMaxPrice}
+      />
+      <MultiFilter label="Recámaras" values={['1', '2', '3', '4+']} selected={bedrooms} onChange={setBedrooms} />
+      <MultiFilter
+        label="Baños"
+        values={['1', '1.5', '2', '2.5', '3', '3.5', '4+']}
+        selected={bathrooms}
+        onChange={setBathrooms}
+      />
+      <RangeInputs
+        label="Construcción m²"
+        minimum={minArea}
+        maximum={maxArea}
+        setMinimum={setMinArea}
+        setMaximum={setMaxArea}
+      />
       <label>
-        <span>Tipo</span>
-        <select value={type} onChange={(event) => setType(event.target.value)} aria-label="Tipo de propiedad">
-          <option value="ALL">Todos los tipos</option>
-          {Object.entries(typeLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Precio máximo</span>
-        <select value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} aria-label="Precio máximo">
-          <option value="">Cualquier precio</option>
-          <option value="3000000">Hasta $3 M</option>
-          <option value="5000000">Hasta $5 M</option>
-          <option value="7000000">Hasta $7 M</option>
-          <option value="10000000">Hasta $10 M</option>
-        </select>
-      </label>
-      <label>
-        <span>Recámaras</span>
-        <select
-          value={minBedrooms}
-          onChange={(event) => setMinBedrooms(event.target.value)}
-          aria-label="Recámaras mínimas"
-        >
-          <option value="">Cualquier cantidad</option>
-          <option value="1">1+ recámaras</option>
-          <option value="2">2+ recámaras</option>
-          <option value="3">3+ recámaras</option>
-          <option value="4">4+ recámaras</option>
+        <span>Ordenar</span>
+        <select value={sort} onChange={(event) => setSort(event.target.value as PropertySort)} aria-label="Ordenar">
+          <option value="modified_desc">Más recientes</option>
+          <option value="price_asc">Precio: menor a mayor</option>
+          <option value="price_desc">Precio: mayor a menor</option>
+          <option value="area_asc">Construcción: menor a mayor</option>
+          <option value="area_desc">Construcción: mayor a menor</option>
         </select>
       </label>
       <label className="check-filter">
@@ -355,14 +260,16 @@ export function PropertyWorkspace({
         <section className={`workspace view-${view}`}>
           <div className="list-pane">
             {filtered.length ? (
-              filtered.map((property) => <PropertyCard key={property.id} property={property} searchId={searchId} />)
+              filtered.map((property) => (
+                <SearchPropertyCard key={property.id} property={property} searchId={searchId} />
+              ))
             ) : (
               <div className="empty-state">
                 <span>
                   <MaterialIcon name="home" />
                 </span>
                 <h2>No hay propiedades aquí</h2>
-                <p>Ajusta los filtros o agrega una por URL o manualmente.</p>
+                <p>Ajusta los filtros o agrega una desde el catálogo.</p>
                 <Link className="button primary" href={`/searches/${searchId}/properties/new`}>
                   Agregar propiedad
                 </Link>
@@ -375,10 +282,10 @@ export function PropertyWorkspace({
               selectedId &&
               (() => {
                 const selected = filtered.find((item) => item.id === selectedId);
-                return selected ? (
+                return selected && !selected.catalogStatus ? (
                   <button type="button" className="map-selection" onClick={() => setEditingId(selected.id)}>
-                    <span>{selected.neighborhood ?? typeLabels[selected.propertyType]}</span>
-                    <strong>{money(selected.priceAmount, selected.priceCurrency)}</strong>
+                    <span>{selected.neighborhood ?? propertyTypeLabels[selected.propertyType]}</span>
+                    <strong>{formatMoney(selected.priceAmount, selected.priceCurrency)}</strong>
                     <small>
                       Editar propiedad <MaterialIcon name="arrowForward" />
                     </small>

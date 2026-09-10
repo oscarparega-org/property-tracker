@@ -15,6 +15,13 @@ export async function savePropertyAction(form: FormData) {
     body: form
   });
 }
+export async function saveCatalogPropertyAction(form: FormData) {
+  const id = String(form.get('id') || '');
+  return requestApi<PropertyDto>(`/api/admin/catalog/properties/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: form
+  });
+}
 export async function saveDecisionAction(form: FormData) {
   normalizeVisit(form);
   const searchId = String(form.get('searchId') || '');

@@ -4,11 +4,26 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MaterialIcon, type MaterialIconName } from '@/components/material-icon';
 
-export function MobileNavigation() {
+export function MobileNavigation({ authenticated }: { authenticated: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchId = pathname.match(/^\/searches\/([^/]+)/)?.[1];
-  if (!searchId) return null;
+  if (!searchId)
+    return (
+      <nav className="mobile-navigation mobile-navigation-global" aria-label="Navegación principal">
+        <Link href="/" aria-current={pathname === '/' || pathname.startsWith('/catalog') ? 'page' : undefined}>
+          <MaterialIcon name="search" />
+          <span>Explorar</span>
+        </Link>
+        <Link
+          href={authenticated ? '/searches' : '/sign-in'}
+          aria-current={pathname === '/searches' ? 'page' : undefined}
+        >
+          <MaterialIcon name={authenticated ? 'list' : 'account'} />
+          <span>{authenticated ? 'Mis búsquedas' : 'Ingresar'}</span>
+        </Link>
+      </nav>
+    );
   const base = `/searches/${searchId}`;
   const destinations: Array<{ href: string; label: string; icon: MaterialIconName; match: string }> = [
     { href: base, label: 'Propiedades', icon: 'list', match: 'properties' },

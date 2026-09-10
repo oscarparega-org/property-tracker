@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   title: 'House Tracker — Mi radar inmobiliario',
   description: 'Organiza, compara y visita las propiedades que te interesan.'
 };
+
+// A request-scoped CSP nonce can only be attached while rendering the request.
+// Keep every route dynamic so client bundles and Next's bootstrap scripts receive it.
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html className={GeistSans.variable} lang="es-MX">

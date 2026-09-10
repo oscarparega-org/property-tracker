@@ -44,6 +44,13 @@ export function buildDeploymentConfig(source = process.env) {
   ) {
     throw new Error('PROVIDER_CREDENTIAL_ENCRYPTION_KEY must be canonical base64 encoding at least 32 bytes');
   }
+  const adminEmail = source.ADMIN_EMAIL?.trim().toLowerCase() || '';
+  if (adminEmail.includes(',')) throw new Error('ADMIN_EMAIL must contain exactly one email address');
+  if (!adminEmail) throw new Error('Missing required configuration: ADMIN_EMAIL');
+  const adminName = required('ADMIN_NAME');
+  const adminPassword = required('ADMIN_PASSWORD');
+  if (adminPassword.length < 8 || adminPassword.length > 128)
+    throw new Error('ADMIN_PASSWORD must contain between 8 and 128 characters');
 
   return {
     apiUrl,
@@ -64,7 +71,10 @@ export function buildDeploymentConfig(source = process.env) {
     resourceTag: `github-repo-${repositoryId}`,
     frontendUrl: `https://${repo}-dev.${baseDomain}`,
     apiPublicUrl: `https://${repo}-api-dev.${baseDomain}`,
-    displayName: 'House Tracker'
+    displayName: 'House Tracker',
+    adminEmail,
+    adminName,
+    adminPassword
   };
 }
 
@@ -186,6 +196,24 @@ export async function reconcile(client, config) {
         { key: 'FRONTEND_URL', value: config.frontendUrl, is_buildtime: true, is_runtime: true, is_preview: false },
         { key: 'PUBLIC_API_URL', value: config.apiPublicUrl, is_buildtime: true, is_runtime: true, is_preview: false },
         { key: 'APP_NAME', value: config.displayName, is_buildtime: true, is_runtime: true, is_preview: false },
+        { key: 'ADMIN_EMAIL', value: config.adminEmail, is_buildtime: false, is_runtime: true, is_preview: false },
+        { key: 'ADMIN_NAME', value: config.adminName, is_buildtime: false, is_runtime: true, is_preview: false },
+        {
+          key: 'ADMIN_PASSWORD',
+          value: config.adminPassword,
+          is_buildtime: false,
+          is_runtime: true,
+          is_preview: false,
+          is_literal: true
+        },
+        {
+          key: 'CATALOG_SYNC_TIME_ZONE',
+          value: 'America/Mexico_City',
+          is_buildtime: false,
+          is_runtime: true,
+          is_preview: false
+        },
+        { key: 'CATALOG_SYNC_HOUR', value: '3', is_buildtime: false, is_runtime: true, is_preview: false },
         {
           key: 'PROVIDER_CREDENTIAL_ENCRYPTION_KEY',
           value: config.providerCredentialEncryptionKey,

@@ -26,7 +26,14 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/app
-    command: ['npx', 'prisma', 'migrate', 'deploy']
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      FRONTEND_URL: ${FRONTEND_URL:?}
+      BETTER_AUTH_URL: ${PUBLIC_API_URL:?}
+      BETTER_AUTH_SECRET: ${SERVICE_BASE64_64_AUTH}
+      PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:?}
+    command: ['sh', '-c', 'npx prisma migrate deploy && node dist/seed-admins.js']
 
   backend:
     build:
@@ -46,6 +53,7 @@ services:
       BETTER_AUTH_SECRET: ${SERVICE_BASE64_64_AUTH}
       PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:?}
       OPENAI_ALLOWED_MODELS: ${OPENAI_ALLOWED_MODELS:-gpt-5.6-luna,gpt-5.6-terra,gpt-5.6-sol}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
     expose:
       - '3000'
     healthcheck:
@@ -88,6 +96,39 @@ services:
       timeout: 5s
       retries: 4
       start_period: 30s
+
+  catalog-scheduler:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    command: ['node', 'dist/catalog-sync.js']
+    restart: unless-stopped
+    stop_grace_period: 4m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_64_POSTGRES}@postgres:5432/app
+      FRONTEND_URL: ${FRONTEND_URL:?}
+      BETTER_AUTH_URL: ${PUBLIC_API_URL:?}
+      BETTER_AUTH_SECRET: ${SERVICE_BASE64_64_AUTH}
+      PROVIDER_CREDENTIAL_ENCRYPTION_KEY: ${PROVIDER_CREDENTIAL_ENCRYPTION_KEY:?}
+      CATALOG_SYNC_TIME_ZONE: ${CATALOG_SYNC_TIME_ZONE:-America/Mexico_City}
+      CATALOG_SYNC_HOUR: ${CATALOG_SYNC_HOUR:-3}
+      CATALOG_STALE_AFTER_HOURS: ${CATALOG_STALE_AFTER_HOURS:-36}
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const fs=require('node:fs');if(Date.now()-Number(fs.readFileSync('/tmp/house-tracker-catalog-heartbeat','utf8'))>180000)process.exit(1)"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+      start_period: 90s
 
   frontend:
     build:

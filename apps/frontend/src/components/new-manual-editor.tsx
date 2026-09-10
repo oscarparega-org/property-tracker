@@ -61,6 +61,7 @@ const emptyProperty: PropertyDto = {
   rejectionReason: null,
   archivedAt: null,
   publicationStatus: 'DRAFT',
+  catalogStatus: null,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   images: [],

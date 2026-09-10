@@ -2,12 +2,14 @@
 import { useState, type FormHTMLAttributes } from 'react';
 import { useRouter } from 'next/navigation';
 import type { PropertyDto } from '@house-tracker/shared';
+import { invalidateProperties } from '@/lib/property-cache';
 
 type Props = Omit<FormHTMLAttributes<HTMLFormElement>, 'action'> & {
   action: (form: FormData) => Promise<PropertyDto>;
   onSuccess?: (result: PropertyDto) => void;
+  redirectOnPublication?: boolean;
 };
-export function ActionForm({ action, children, onSuccess, ...props }: Props) {
+export function ActionForm({ action, children, onSuccess, redirectOnPublication = true, ...props }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -23,8 +25,8 @@ export function ActionForm({ action, children, onSuccess, ...props }: Props) {
         try {
           const result = await action(form);
           onSuccess?.(result);
-          window.dispatchEvent(new Event('properties-changed'));
-          if (form.has('publicationStatus')) {
+          invalidateProperties();
+          if (redirectOnPublication && form.has('publicationStatus')) {
             const base = result.searchId ? `/searches/${result.searchId}` : '';
             router.push(`${base}/properties/${result.id}${result.publicationStatus === 'DRAFT' ? '/review' : ''}`);
           }
@@ -35,7 +37,7 @@ export function ActionForm({ action, children, onSuccess, ...props }: Props) {
         }
       }}
     >
-      <fieldset disabled={pending} style={{ display: 'contents' }}>
+      <fieldset disabled={pending} className="contents-fieldset">
         {children}
       </fieldset>
       {pending && <p role="status">Guardando…</p>}

@@ -66,6 +66,23 @@ export function serializeEnv(values) {
     .join('\n')}\n`;
 }
 
+export function resolveWorktreeAdmin(source = process.env) {
+  const supplied = ['ADMIN_EMAIL', 'ADMIN_NAME', 'ADMIN_PASSWORD'].filter((name) => source[name]);
+  if (supplied.length > 0 && supplied.length < 3) {
+    throw new Error('ADMIN_EMAIL, ADMIN_NAME, and ADMIN_PASSWORD must be supplied together for a new worktree.');
+  }
+  const admin = {
+    email: source.ADMIN_EMAIL?.trim().toLowerCase() || 'demo@property-tracker.local',
+    name: source.ADMIN_NAME?.trim() || 'Usuario Demo',
+    password: source.ADMIN_PASSWORD || 'demo-password-123'
+  };
+  if (Object.values(admin).some((value) => /[\r\n]/.test(value)))
+    throw new Error('Worktree admin values cannot contain line breaks.');
+  if (admin.password.length < 8 || admin.password.length > 128)
+    throw new Error('ADMIN_PASSWORD must contain between 8 and 128 characters');
+  return admin;
+}
+
 export function composeArguments(projectName, args, envPath) {
   return ['compose', '--project-name', projectName, ...(envPath ? ['--env-file', envPath] : []), ...args];
 }
@@ -279,6 +296,7 @@ async function initialize(root) {
     const databaseUser = 'template';
     const databasePassword = randomBytes(24).toString('base64url');
     const databaseUrl = `postgresql://${databaseUser}:${databasePassword}@localhost:${ports.postgres}/${identity.databaseName}`;
+    const admin = resolveWorktreeAdmin();
     const config = {
       WORKTREE_CONFIG_VERSION: worktreeConfigVersion,
       WORKTREE_ID: identity.id,
@@ -300,8 +318,13 @@ async function initialize(root) {
       BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
       PROVIDER_CREDENTIAL_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
       DEV_SEED_ENABLED: 'true',
-      DEV_SEED_EMAIL: 'demo@property-tracker.local',
-      DEV_SEED_PASSWORD: 'demo-password-123',
+      DEV_SEED_EMAIL: admin.email,
+      DEV_SEED_PASSWORD: admin.password,
+      ADMIN_EMAIL: admin.email,
+      ADMIN_NAME: admin.name,
+      ADMIN_PASSWORD: admin.password,
+      CATALOG_SYNC_TIME_ZONE: 'America/Mexico_City',
+      CATALOG_SYNC_HOUR: '3',
       NODE_ENV: 'development'
     };
     const envPath = join(root, envFilename);
@@ -317,11 +340,19 @@ async function initialize(root) {
 }
 
 function runtimeEnvironment(config) {
+  const adminEmail = config.ADMIN_EMAIL || config.DEV_SEED_EMAIL || 'demo@property-tracker.local';
+  const adminName = config.ADMIN_NAME || 'Usuario Demo';
+  const adminPassword = config.ADMIN_PASSWORD || config.DEV_SEED_PASSWORD || 'demo-password-123';
   return {
     ...process.env,
     DEV_SEED_ENABLED: 'true',
-    DEV_SEED_EMAIL: 'demo@property-tracker.local',
-    DEV_SEED_PASSWORD: 'demo-password-123',
+    DEV_SEED_EMAIL: adminEmail,
+    DEV_SEED_PASSWORD: adminPassword,
+    ADMIN_EMAIL: adminEmail,
+    ADMIN_NAME: adminName,
+    ADMIN_PASSWORD: adminPassword,
+    CATALOG_SYNC_TIME_ZONE: 'America/Mexico_City',
+    CATALOG_SYNC_HOUR: '3',
     ...config,
     API_URL: `http://127.0.0.1:${config.API_PORT}`
   };
@@ -340,7 +371,8 @@ function printConfig(config, heading = 'Worktree development stack') {
   console.log(`  Frontend: ${config.FRONTEND_URL}`);
   console.log(`  API:      ${config.BETTER_AUTH_URL}`);
   console.log(`  Postgres: localhost:${config.POSTGRES_PORT}/${config.POSTGRES_DB}`);
-  console.log(`  Project:  ${config.COMPOSE_PROJECT_NAME}\n`);
+  console.log(`  Project:  ${config.COMPOSE_PROJECT_NAME}`);
+  console.log(`  Admin:    ${config.ADMIN_EMAIL || config.DEV_SEED_EMAIL || 'demo@property-tracker.local'}\n`);
 }
 
 function startChild(label, executable, args, root, env) {
@@ -403,6 +435,13 @@ async function develop(root) {
       'import worker',
       join(root, 'node_modules', '.bin', 'tsx'),
       ['src/import-worker.ts'],
+      join(root, 'apps/backend'),
+      env
+    ),
+    startChild(
+      'catalog scheduler',
+      join(root, 'node_modules', '.bin', 'tsx'),
+      ['src/catalog-sync.ts'],
       join(root, 'apps/backend'),
       env
     )
@@ -472,8 +511,19 @@ function seed(root, config = readConfig(root)) {
     console.log('[worktree] development seed disabled');
     return;
   }
-  console.log('[worktree] seeding development account and property');
+  console.log('[worktree] bootstrapping the local administrator');
+  command(join(root, 'node_modules', '.bin', 'tsx'), ['src/seed-admins.ts'], { cwd: join(root, 'apps/backend'), env });
+  console.log('[worktree] seeding development property');
   command(join(root, 'node_modules', '.bin', 'tsx'), ['src/seed-dev.ts'], { cwd: join(root, 'apps/backend'), env });
+}
+
+function catalogSync(root, config = readConfig(root)) {
+  const env = runtimeEnvironment(config);
+  console.log('[worktree] synchronizing curated catalog');
+  command(join(root, 'node_modules', '.bin', 'tsx'), ['src/catalog-sync.ts', '--once', '--force'], {
+    cwd: join(root, 'apps/backend'),
+    env
+  });
 }
 
 function down(root, removeConfig = false) {
@@ -542,7 +592,7 @@ function removeWorktree(sourceRoot, rawArgs) {
 
 function usage() {
   console.log(
-    `Usage: node scripts/worktree.mjs <command>\n\nCommands:\n  init                 Allocate stable worktree ports and secrets\n  dev                  Start PostgreSQL, migrate, seed, and run with hot reload\n  seed                 Restore missing development seed records\n  status               Show this worktree's URLs and Compose services\n  down                 Remove this worktree's containers, network, and volume\n  remove <path>        Clean and remove another Orca worktree\n  remove <path> --force  Also discard uncommitted changes`
+    `Usage: node scripts/worktree.mjs <command>\n\nCommands:\n  init                 Allocate stable worktree ports and secrets\n  dev                  Start PostgreSQL, migrate, seed, and run with hot reload\n  seed                 Restore missing development seed records\n  catalog-sync         Import the current curated catalog once\n  status               Show this worktree's URLs and Compose services\n  down                 Remove this worktree's containers, network, and volume\n  remove <path>        Clean and remove another Orca worktree\n  remove <path> --force  Also discard uncommitted changes`
   );
 }
 
@@ -551,6 +601,7 @@ async function main() {
   if (action === 'init') await initialize(scriptRoot);
   else if (action === 'dev') await develop(scriptRoot);
   else if (action === 'seed') seed(scriptRoot);
+  else if (action === 'catalog-sync') catalogSync(scriptRoot);
   else if (action === 'status') status(scriptRoot);
   else if (action === 'down') down(scriptRoot);
   else if (action === 'remove') removeWorktree(scriptRoot, args);

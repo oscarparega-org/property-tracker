@@ -91,7 +91,7 @@ export function SearchOverview() {
               </Link>
               <div className="search-progress" aria-label="Distribución por etapa">
                 {Object.entries(search.statusCounts).map(([status, count]) => (
-                  <span key={status} title={`${status}: ${count}`} style={{ flexGrow: count }} />
+                  <span key={status} title={`${status}: ${count}`} />
                 ))}
               </div>
               <button

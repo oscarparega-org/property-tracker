@@ -10,22 +10,7 @@ import { ActionForm } from '@/components/action-form';
 import { PropertyEnhancement } from '@/components/property-enhancement';
 import { BodyNavigation } from '@/components/body-navigation';
 import { PropertyMemberships } from '@/components/property-memberships';
-
-const typeLabels = {
-  APARTMENT: 'Departamento',
-  HOUSE: 'Casa',
-  LAND: 'Terreno',
-  OTHER: 'Otro'
-} as const;
-
-function money(amount: number | null, currency: string | null) {
-  if (amount === null) return 'Sin dato';
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency ?? 'MXN',
-    maximumFractionDigits: 0
-  }).format(amount);
-}
+import { formatMoney, propertyAddress, propertyTypeLabels } from '@/lib/property-format';
 
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -50,6 +35,11 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
       />
 
       <div className="detail-layout">
+        {property.catalogStatus === 'UNAVAILABLE' && (
+          <div className="draft-banner unavailable-banner">
+            La publicación original ya no está disponible. Conservamos tus notas y decisiones.
+          </div>
+        )}
         {property.publicationStatus === 'DRAFT' && (
           <div className="draft-banner">
             <span>
@@ -68,14 +58,14 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
         )}
         <div className="detail-title-row">
           <div>
-            <span className="detail-kicker">{typeLabels[property.propertyType]} · En venta</span>
+            <span className="detail-kicker">{propertyTypeLabels[property.propertyType]} · En venta</span>
             <h1>{property.title}</h1>
-            <p>{property.formattedAddress ?? property.neighborhood ?? 'Ubicación pendiente'}</p>
+            <p>{propertyAddress(property)}</p>
           </div>
           <div className="detail-price-actions">
             <div className="detail-price">
               <small>Precio publicado</small>
-              <strong>{money(property.priceAmount, property.priceCurrency)}</strong>
+              <strong>{formatMoney(property.priceAmount, property.priceCurrency)}</strong>
             </div>
             <ActionForm action={toggleFavoriteAction.bind(null, property.id, !property.isFavorite, property.searchId)}>
               <button
@@ -100,7 +90,7 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
               <h2>Datos de la propiedad</h2>
             </div>
             <div className="full-facts-grid">
-              <Fact label="Tipo" value={typeLabels[property.propertyType]} />
+              <Fact label="Tipo" value={propertyTypeLabels[property.propertyType]} />
               <Fact label="Operación" value="Venta" />
               <Fact
                 label="Construcción"
@@ -124,7 +114,10 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
               <Fact label="Uso de suelo" value={property.landUse} />
               <Fact label="Niveles del edificio" value={property.buildingLevels} />
               <Fact label="Piso de la unidad" value={property.unitFloor} />
-              <Fact label="Mantenimiento" value={money(property.maintenanceAmount, property.maintenanceCurrency)} />
+              <Fact
+                label="Mantenimiento"
+                value={formatMoney(property.maintenanceAmount, property.maintenanceCurrency)}
+              />
             </div>
           </section>
 
@@ -244,7 +237,7 @@ export function PropertyDetail({ property }: { property: PropertyDto }) {
                 </a>
               )}
             </div>
-            {property.sourceUrl && <PropertyEnhancement propertyId={property.id} />}
+            {property.sourceUrl && !property.catalogStatus && <PropertyEnhancement propertyId={property.id} />}
             <details className="metadata-details">
               <summary>Ver metadatos originales JSON</summary>
               <pre>{JSON.stringify(property.sourceMetadata, null, 2)}</pre>

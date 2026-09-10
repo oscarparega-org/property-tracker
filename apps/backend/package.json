@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "worker:imports": "tsx src/import-worker.ts",
+    "catalog:sync": "tsx src/catalog-sync.ts --once --force",
+    "catalog:scheduler": "tsx src/catalog-sync.ts",
+    "admin:seed": "tsx src/seed-admins.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
     "check": "prisma generate && tsc --noEmit",

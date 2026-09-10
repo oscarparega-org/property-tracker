@@ -15,7 +15,7 @@ function lines(value: string) {
 
 export async function saveProperty(
   db: PrismaClient | Prisma.TransactionClient,
-  ownerId: string,
+  ownerId: string | null,
   formData: FormData,
   id?: string
 ) {
@@ -90,7 +90,8 @@ export async function saveProperty(
     searches: {
       include: { search: { select: { id: true, name: true, isPrimary: true } } },
       orderBy: { createdAt: 'asc' as const }
-    }
+    },
+    catalogListing: { select: { status: true } }
   };
   if (id) {
     return toPropertyDto(

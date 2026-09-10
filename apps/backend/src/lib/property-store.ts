@@ -6,20 +6,21 @@ import {
   type EnhancementPreviewDto
 } from '@house-tracker/shared';
 
-const includeRelations = {
+export const includeRelations = {
   images: { orderBy: { sortOrder: 'asc' as const } },
   features: { orderBy: [{ category: 'asc' as const }, { name: 'asc' as const }] },
   searches: {
     include: { search: { select: { id: true, name: true, isPrimary: true } } },
     orderBy: { createdAt: 'asc' as const }
-  }
+  },
+  catalogListing: { select: { status: true } }
 };
 
 export type PropertyRecord = Prisma.PropertyGetPayload<{
   include: typeof includeRelations;
 }>;
 
-function sourceData(input: PropertyInput) {
+export function sourceData(input: PropertyInput) {
   const { source, property, contact } = input;
   return {
     sourceProvider: source.provider,
@@ -70,7 +71,7 @@ function sourceData(input: PropertyInput) {
   } satisfies Omit<Prisma.PropertyUncheckedCreateInput, 'ownerId'>;
 }
 
-function relationData(input: PropertyInput) {
+export function relationData(input: PropertyInput) {
   return {
     images: input.images.map((image) => ({
       url: image.url,
@@ -132,15 +133,17 @@ function number(value: { toString(): string } | null) {
 }
 
 export function toPropertyDto(record: PropertyRecord, searchId?: string): PropertyDto {
-  const { ownerId: _ownerId, searches: _searches, ...property } = record;
+  const { ownerId: _ownerId, searches: _searches, catalogListing: _catalogListing, ...property } = record;
   void _ownerId;
   void _searches;
+  void _catalogListing;
   const membership =
     record.searches.find((item) => item.searchId === searchId) ??
     record.searches.find((item) => item.search.isPrimary) ??
     record.searches[0];
   return {
     ...property,
+    catalogStatus: record.catalogListing?.status ?? null,
     searchId: membership?.searchId ?? null,
     memberships: record.searches.map((item) => ({
       searchId: item.searchId,
@@ -169,7 +172,10 @@ export function toPropertyDto(record: PropertyRecord, searchId?: string): Proper
 
 export async function listProperties(db: PrismaClient | Prisma.TransactionClient, ownerId: string, searchId?: string) {
   const records = await db.property.findMany({
-    where: { ownerId, publicationStatus: 'PUBLISHED', ...(searchId ? { searches: { some: { searchId } } } : {}) },
+    where: {
+      publicationStatus: 'PUBLISHED',
+      ...(searchId ? { searches: { some: { searchId, ownerId } } } : { ownerId })
+    },
     include: includeRelations,
     orderBy: { updatedAt: 'desc' }
   });
@@ -182,7 +188,10 @@ export async function listDraftProperties(
   searchId?: string
 ) {
   const records = await db.property.findMany({
-    where: { ownerId, publicationStatus: 'DRAFT', ...(searchId ? { searches: { some: { searchId } } } : {}) },
+    where: {
+      publicationStatus: 'DRAFT',
+      ...(searchId ? { searches: { some: { searchId, ownerId } } } : { ownerId })
+    },
     include: includeRelations,
     orderBy: { updatedAt: 'desc' }
   });
@@ -192,11 +201,12 @@ export async function listDraftProperties(
 export async function getProperty(
   db: PrismaClient | Prisma.TransactionClient,
   id: string,
-  ownerId: string,
+  ownerId: string | null,
   searchId?: string
 ) {
+  if (searchId && ownerId === null) return null;
   const record = await db.property.findUnique({
-    where: { id, ownerId, ...(searchId ? { searches: { some: { searchId } } } : {}) },
+    where: searchId ? { id, searches: { some: { searchId, ownerId: ownerId! } } } : { id, ownerId },
     include: includeRelations
   });
   return record ? toPropertyDto(record, searchId) : null;

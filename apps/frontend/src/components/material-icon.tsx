@@ -1,6 +1,7 @@
 'use client';
 
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -24,6 +25,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import SyncIcon from '@mui/icons-material/Sync';
 
 const icons = {
+  account: AccountCircleIcon,
   add: AddIcon,
   arrowBack: ArrowBackIcon,
   arrowForward: ArrowForwardIcon,

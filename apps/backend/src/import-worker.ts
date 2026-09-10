@@ -15,14 +15,20 @@ const heartbeat = setInterval(() => {
 }, 10_000);
 try {
   while (!stopping) {
-    await recoverStaleImports(prisma);
-    const next = await prisma.propertyImport.findFirst({
-      where: { status: 'QUEUED' },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true }
-    });
-    if (next) await processImportJob(prisma, next.id);
-    else await new Promise((resolve) => setTimeout(resolve, 2_000));
+    try {
+      await recoverStaleImports(prisma);
+      const next = await prisma.propertyImport.findFirst({
+        where: { status: 'QUEUED', nextAttemptAt: { lte: new Date() } },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true }
+      });
+      if (next) await processImportJob(prisma, next.id);
+      else await new Promise((resolve) => setTimeout(resolve, 2_000));
+    } catch (error) {
+      if (stopping) break;
+      console.error('Import worker polling failed', error instanceof Error ? error.message : 'unknown error');
+      await new Promise((resolve) => setTimeout(resolve, 5_000));
+    }
   }
 } finally {
   clearInterval(heartbeat);

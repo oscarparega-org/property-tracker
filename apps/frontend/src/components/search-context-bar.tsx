@@ -18,7 +18,7 @@ export function SearchContextBar({ searchId }: { searchId: string }) {
   useEffect(load, []);
   return (
     <nav className="search-context" aria-label="Búsqueda actual">
-      <Link href="/">Todas las búsquedas</Link>
+      <Link href="/searches">Todas las búsquedas</Link>
       <span>/</span>
       <select
         aria-label="Cambiar búsqueda"

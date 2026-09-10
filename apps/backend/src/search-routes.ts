@@ -55,12 +55,14 @@ export function searchRoutes(db: PrismaClient) {
     if (!search) throw new HTTPException(404, { message: 'Búsqueda no encontrada.' });
     const memberships = await db.searchProperty.findMany({
       where: { searchId: search.id, ownerId: owner(c) },
-      select: { property: { select: { _count: { select: { searches: true } } } } }
+      select: { property: { select: { ownerId: true, _count: { select: { searches: true } } } } }
     });
     return c.json({
       name: search.name,
       membershipCount: memberships.length,
-      orphanCount: memberships.filter((item) => item.property._count.searches === 1).length
+      orphanCount: memberships.filter(
+        (item) => item.property.ownerId === owner(c) && item.property._count.searches === 1
+      ).length
     });
   });
 
@@ -75,10 +77,10 @@ export function searchRoutes(db: PrismaClient) {
         throw new HTTPException(400, { message: 'El nombre de confirmación no coincide.' });
       const linked = await tx.searchProperty.findMany({
         where: { searchId: search.id, ownerId },
-        select: { propertyId: true, property: { select: { _count: { select: { searches: true } } } } }
+        select: { propertyId: true, property: { select: { ownerId: true, _count: { select: { searches: true } } } } }
       });
       const orphanIds = linked
-        .filter((membership) => membership.property._count.searches === 1)
+        .filter((membership) => membership.property.ownerId === ownerId && membership.property._count.searches === 1)
         .map((membership) => membership.propertyId);
       if (linked.length !== expectedMembershipCount || orphanIds.length !== expectedOrphanCount)
         throw new HTTPException(409, {

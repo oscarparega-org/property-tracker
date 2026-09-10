@@ -10,6 +10,10 @@ import { propertyRoutes } from './property-routes.js';
 import { bodyLimit } from 'hono/body-limit';
 import { providerSettingsRoutes } from './provider-settings-routes.js';
 import { searchRoutes } from './search-routes.js';
+import { catalogRoutes } from './catalog-routes.js';
+import { z } from 'zod';
+import { adminCatalogRoutes } from './admin-catalog-routes.js';
+import { standardImportRoutes } from './standard-import-routes.js';
 
 type AuthInstance = typeof defaultAuth;
 
@@ -27,9 +31,8 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
     })
   );
 
-  app.all('/api/auth/*', (context) => auth.handler(context.req.raw));
-
   app.use('/api/*', bodyLimit({ maxSize: 1024 * 1024 }));
+  app.all('/api/auth/*', (context) => auth.handler(context.req.raw));
   app.use('/api/*', async (context, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(context.req.method)) {
       const origin = context.req.header('Origin');
@@ -41,6 +44,9 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
     context.set('session', session);
     await next();
   });
+  app.route('/api', catalogRoutes(database));
+  app.route('/api', adminCatalogRoutes(database));
+  app.route('/api', standardImportRoutes(database));
   app.route('/api', propertyRoutes(database));
   app.route('/api', searchRoutes(database));
   app.route('/api', providerSettingsRoutes(database));
@@ -52,6 +58,8 @@ export function createApp(auth: AuthInstance = defaultAuth, database: PrismaClie
 
   app.notFound((context) => context.json({ error: 'Not found' }, 404));
   app.onError((error, context) => {
+    if (error instanceof z.ZodError)
+      return context.json({ error: error.issues[0]?.message || 'Datos inválidos.' }, 400);
     if (error instanceof HTTPException) return context.json({ error: error.message }, error.status);
     console.error('Unhandled request error', error);
     return context.json({ error: 'Internal server error' }, 500);

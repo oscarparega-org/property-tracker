@@ -5,6 +5,7 @@ import {
   composeArguments,
   deriveWorktreeIdentity,
   parseEnv,
+  resolveWorktreeAdmin,
   selectPortSlot,
   serializeEnv,
   shortHash,
@@ -50,6 +51,23 @@ test('worktree hashes are stable and bounded', () => {
 test('environment serialization round trips generated values', () => {
   const values = { COMPOSE_PROJECT_NAME: 'property-tracker-test', API_PORT: '3100', SECRET: 'abc_123-XYZ' };
   assert.deepEqual(parseEnv(serializeEnv(values)), values);
+});
+
+test('new worktrees receive a complete local administrator configuration', () => {
+  assert.deepEqual(resolveWorktreeAdmin({}), {
+    email: 'demo@property-tracker.local',
+    name: 'Usuario Demo',
+    password: 'demo-password-123'
+  });
+  assert.deepEqual(
+    resolveWorktreeAdmin({
+      ADMIN_EMAIL: ' Admin@Example.Test ',
+      ADMIN_NAME: 'Local Admin',
+      ADMIN_PASSWORD: 'local-admin-password'
+    }),
+    { email: 'admin@example.test', name: 'Local Admin', password: 'local-admin-password' }
+  );
+  assert.throws(() => resolveWorktreeAdmin({ ADMIN_EMAIL: 'admin@example.test' }), /must be supplied together/);
 });
 
 test('worktree identity and cleanup project are derived from the absolute path', () => {

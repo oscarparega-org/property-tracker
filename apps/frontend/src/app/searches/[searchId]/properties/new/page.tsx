@@ -7,5 +7,6 @@ export default async function NewPropertyPage({
   searchParams: Promise<{ mode?: string }>;
 }) {
   const [{ searchId }, query] = await Promise.all([params, searchParams]);
-  return <SearchAddPage searchId={searchId} mode={query.mode === 'manual' ? 'manual' : 'url'} />;
+  const mode = query.mode === 'manual' ? 'manual' : query.mode === 'url' ? 'url' : 'catalog';
+  return <SearchAddPage searchId={searchId} mode={mode} />;
 }

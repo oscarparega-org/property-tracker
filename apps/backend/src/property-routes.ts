@@ -6,7 +6,6 @@ import {
   canonicalizeListingUrl,
   decisionSchema,
   decisionStatusRequestSchema,
-  importRequestSchema,
   favoriteRequestSchema,
   archiveRequestSchema,
   propertyInputSchema,
@@ -39,6 +38,12 @@ export function propertyRoutes(db: PrismaClient) {
     const property = await getProperty(db, id, ownerId);
     if (!property) throw new HTTPException(404, { message: 'Propiedad no encontrada.' });
     return property;
+  }
+  async function ownedPrivate(id: string, ownerId: string) {
+    const property = await db.property.findFirst({ where: { id, ownerId }, select: { id: true } });
+    if (!property)
+      throw new HTTPException(403, { message: 'Las propiedades del catálogo son administradas centralmente.' });
+    return owned(id, ownerId);
   }
   async function resolvedSearchIds(ownerId: string, requested?: string[]) {
     if (requested?.length) {
@@ -134,11 +139,11 @@ export function propertyRoutes(db: PrismaClient) {
     return { available: true, reason: null };
   }
   routes.get('/properties/:id/enhancement-capability', async (c) => {
-    await owned(c.req.param('id'), owner(c));
+    await ownedPrivate(c.req.param('id'), owner(c));
     return c.json(await enhancementCapability(owner(c)));
   });
   routes.post('/properties/:id/enhancements', async (c) => {
-    const property = await owned(c.req.param('id'), owner(c));
+    const property = await ownedPrivate(c.req.param('id'), owner(c));
     if (!property.sourceUrl) throw new HTTPException(400, { message: 'Esta propiedad no tiene una URL de origen.' });
     const capability = await enhancementCapability(owner(c));
     if (!capability.available) throw new HTTPException(409, { message: capability.reason! });
@@ -186,7 +191,7 @@ export function propertyRoutes(db: PrismaClient) {
     if (!job || !job.propertyId) throw new HTTPException(404, { message: 'Mejora no encontrada.' });
     if (job.status !== 'READY' || !job.draftData)
       throw new HTTPException(409, { message: job.errorMessage ?? 'La mejora todavía no está lista.' });
-    const property = await owned(job.propertyId, owner(c));
+    const property = await ownedPrivate(job.propertyId, owner(c));
     return c.json(buildEnhancementPreview(property, propertyInputSchema.parse(job.draftData), job.id));
   });
   routes.post('/enhancements/:id/apply', async (c) => {
@@ -194,7 +199,7 @@ export function propertyRoutes(db: PrismaClient) {
       where: { id: c.req.param('id'), ownerId: owner(c), kind: 'ENHANCEMENT', status: 'READY' }
     });
     if (!job?.propertyId || !job.draftData) throw new HTTPException(404, { message: 'Mejora lista no encontrada.' });
-    await owned(job.propertyId, owner(c));
+    await ownedPrivate(job.propertyId, owner(c));
     const candidate = propertyInputSchema.parse(job.draftData);
     const current = await owned(job.propertyId, owner(c));
     const preview = buildEnhancementPreview(current, candidate, job.id);
@@ -225,7 +230,7 @@ export function propertyRoutes(db: PrismaClient) {
     return c.json(result, 201);
   });
   routes.put('/properties/:id', async (c) => {
-    const property = await owned(c.req.param('id'), owner(c));
+    const property = await ownedPrivate(c.req.param('id'), owner(c));
     const form = await c.req.formData();
     await saveProperty(db, owner(c), form, property.id);
     const searchId = String(form.get('searchId') || '') || undefined;
@@ -234,7 +239,13 @@ export function propertyRoutes(db: PrismaClient) {
   });
   routes.put('/properties/:id/searches', async (c) => {
     const ownerId = owner(c);
-    const property = await owned(c.req.param('id'), ownerId);
+    const property = await db.property.findFirst({
+      where: {
+        id: c.req.param('id'),
+        OR: [{ ownerId }, { searches: { some: { ownerId } } }]
+      }
+    });
+    if (!property) throw new HTTPException(404, { message: 'Propiedad no encontrada.' });
     const { searchIds } = membershipRequestSchema.parse(await c.req.json());
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${ownerId}:search-limit`}, 0))::text`;
@@ -298,62 +309,6 @@ export function propertyRoutes(db: PrismaClient) {
     const { archived } = archiveRequestSchema.parse(await c.req.json());
     if (!property.searchId) throw new HTTPException(409, { message: 'La propiedad no pertenece a una búsqueda.' });
     return c.json(await updateLifecycle(property.searchId, id, owner(c), { archivedAt: archived ? new Date() : null }));
-  });
-  routes.post('/imports', async (c) => {
-    const { url, searchIds: requestedSearchIds } = importRequestSchema.parse(await c.req.json());
-    const searchIds = await resolvedSearchIds(owner(c), requestedSearchIds);
-    const canonicalUrl = canonicalizeListingUrl(url);
-    try {
-      await assertSafePublicUrl(canonicalUrl);
-    } catch {
-      throw new HTTPException(400, { message: 'La URL debe apuntar a una página pública HTTP o HTTPS.' });
-    }
-    // Serialize duplicate checks per account and URL. Never reuse another user's job.
-    const result = await db.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${owner(c)}:search-limit`}, 0))::text`;
-      if (!(await validateSearchIds(tx, owner(c), searchIds)))
-        throw new HTTPException(404, { message: 'Una de las búsquedas no existe.' });
-      const lock = `${owner(c)}:${canonicalUrl}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lock}, 0))::text`;
-      const existing = await tx.property.findFirst({ where: { ownerId: owner(c), sourceUrl: canonicalUrl } });
-      if (existing) {
-        await tx.searchProperty.createMany({
-          data: searchIds.map((searchId) => ({ ownerId: owner(c), searchId, propertyId: existing.id })),
-          skipDuplicates: true
-        });
-        return { existing: true as const, propertyId: existing.id, publicationStatus: existing.publicationStatus };
-      }
-      const active = await tx.propertyImport.findFirst({
-        where: { ownerId: owner(c), canonicalUrl, status: { in: ['QUEUED', 'FETCHING', 'RENDERING', 'EXTRACTING'] } }
-      });
-      if (active) {
-        await tx.propertyImportTarget.createMany({
-          data: searchIds.map((searchId) => ({ ownerId: owner(c), importId: active.id, searchId })),
-          skipDuplicates: true
-        });
-        importDebug(active.id, 'import.queue.reused', { sourceHost: new URL(canonicalUrl).hostname });
-        return { importId: active.id, status: active.status };
-      }
-      const job = await tx.propertyImport.create({
-        data: {
-          ownerId: owner(c),
-          url,
-          canonicalUrl,
-          targets: { create: searchIds.map((searchId) => ({ searchId })) }
-        }
-      });
-      importDebug(job.id, 'import.queued', { kind: job.kind, sourceHost: new URL(canonicalUrl).hostname });
-      return { importId: job.id, status: job.status };
-    });
-    return c.json(result, 'existing' in result ? 200 : 202);
-  });
-  routes.get('/imports/:id', async (c) => {
-    const job = await db.propertyImport.findFirst({
-      where: { id: c.req.param('id'), ownerId: owner(c) },
-      select: { id: true, kind: true, status: true, propertyId: true, errorMessage: true, retryCount: true }
-    });
-    if (!job) throw new HTTPException(404, { message: 'Importación no encontrada.' });
-    return c.json(job);
   });
   routes.onError((error, c) => {
     if (error instanceof SyntaxError) return c.json({ error: 'El cuerpo de la solicitud no es válido.' }, 400);

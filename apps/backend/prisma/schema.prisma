@@ -21,8 +21,15 @@ model User {
   accounts         Account[]
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
+  role                 UserRole          @default(USER)
+  adminManagedByConfig Boolean           @default(false)
 
   @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }
 
 model Session {
@@ -115,6 +122,20 @@ enum ImportStatus {
 enum ImportKind {
   STANDARD
   ENHANCEMENT
+  CATALOG
+}
+
+enum CatalogStatus {
+  DRAFT
+  ACTIVE
+  UNAVAILABLE
+}
+
+enum CatalogSyncStatus {
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
 }
 
 enum IntegrationProvider {
@@ -143,8 +164,8 @@ model ProviderSetting {
 }
 
 model Property {
-  ownerId             String
-  owner               User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId             String?
+  owner               User?             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   id                  String            @id @default(cuid())
   sourceProvider      String
   sourceUrl           String?
@@ -194,6 +215,9 @@ model Property {
   publicationStatus   PublicationStatus @default(PUBLISHED)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
+  neighborhoodId      String?
+  neighborhoodEntity  Neighborhood?     @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
+  catalogListing      CatalogListing?
   images              PropertyImage[]
   features            PropertyFeature[]
   imports             PropertyImport[]
@@ -201,10 +225,15 @@ model Property {
 
   @@unique([ownerId, sourceUrl])
   @@unique([ownerId, sourceProvider, sourceListingId])
-  @@unique([id, ownerId])
   @@index([ownerId])
+  @@index([neighborhoodId])
   @@index([ownerId, publicationStatus])
   @@index([publicationStatus])
+  @@index([publicationStatus, neighborhoodId, propertyType])
+  @@index([publicationStatus, priceAmount])
+  @@index([publicationStatus, constructionAreaM2])
+  @@index([publicationStatus, bedrooms])
+  @@index([publicationStatus, bathrooms])
 }
 
 model PropertyImport {
@@ -218,6 +247,7 @@ model PropertyImport {
   strategy            String?
   provider            String?
   retryCount          Int                    @default(0)
+  nextAttemptAt       DateTime               @default(now())
   draftData           Json?
   evidence            Json?
   errorMessage        String?
@@ -231,9 +261,10 @@ model PropertyImport {
   targets             PropertyImportTarget[]
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
+  publishOnReady      Boolean                @default(false)
 
   @@unique([id, ownerId])
-  @@index([status, createdAt])
+  @@index([status, nextAttemptAt, createdAt])
   @@index([ownerId, canonicalUrl])
   @@index([canonicalUrl])
   @@index([ownerId])
@@ -263,7 +294,7 @@ model SearchProperty {
   searchId        String
   search          Search         @relation(fields: [searchId, ownerId], references: [id, ownerId], onDelete: Cascade)
   propertyId      String
-  property        Property       @relation(fields: [propertyId, ownerId], references: [id, ownerId], onDelete: Cascade)
+  property        Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   decisionStatus  DecisionStatus @default(NEW)
   isFavorite      Boolean        @default(false)
   rating          Int?
@@ -316,4 +347,107 @@ model PropertyFeature {
 
   @@unique([propertyId, category, name])
   @@index([propertyId])
+}
+
+model State {
+  id             String          @id
+  countryCode    String          @default("MX") @db.VarChar(2)
+  name           String
+  slug           String
+  municipalities Municipality[]
+  catalogSources CatalogSource[]
+
+  @@unique([countryCode, slug])
+  @@map("states")
+}
+
+model Municipality {
+  id             String          @id
+  stateId        String
+  state          State           @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  name           String
+  slug           String
+  neighborhoods  Neighborhood[]
+  catalogSources CatalogSource[]
+
+  @@unique([stateId, slug])
+  @@index([stateId])
+  @@map("municipalities")
+}
+
+model Neighborhood {
+  id             String          @id
+  municipalityId String
+  municipality   Municipality    @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  name           String
+  slug           String
+  properties     Property[]
+  catalogSources CatalogSource[]
+
+  @@unique([municipalityId, slug])
+  @@index([municipalityId])
+  @@map("neighborhoods")
+}
+
+model CatalogSource {
+  id                   String           @id
+  providerKey          String
+  name                 String
+  discoveryUrl         String
+  discoveryConfig      Json
+  stateId              String
+  state                State            @relation(fields: [stateId], references: [id], onDelete: Restrict)
+  municipalityId       String
+  municipality         Municipality     @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  neighborhoodId       String
+  neighborhood         Neighborhood     @relation(fields: [neighborhoodId], references: [id], onDelete: Restrict)
+  enabled              Boolean          @default(true)
+  lastSuccessfulSyncAt DateTime?
+  listings             CatalogListing[]
+  syncRuns             CatalogSyncRun[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([enabled])
+  @@map("catalog_sources")
+}
+
+model CatalogListing {
+  propertyId       String        @id
+  property         Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  sourceId         String
+  source           CatalogSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  sourceListingId  String
+  sourceModifiedAt DateTime?
+  firstSeenAt      DateTime      @default(now())
+  lastSeenAt       DateTime      @default(now())
+  status           CatalogStatus @default(DRAFT)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([sourceId, sourceListingId])
+  @@index([status, sourceModifiedAt])
+  @@map("catalog_listings")
+}
+
+model CatalogSyncRun {
+  id               String            @id @default(cuid())
+  sourceId         String
+  source           CatalogSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  scheduledDate    String
+  status           CatalogSyncStatus @default(RUNNING)
+  discoveredCount  Int               @default(0)
+  createdCount     Int               @default(0)
+  updatedCount     Int               @default(0)
+  unchangedCount   Int               @default(0)
+  unavailableCount Int               @default(0)
+  failedCount      Int               @default(0)
+  retryCount       Int               @default(0)
+  errorMessage     String?
+  startedAt        DateTime          @default(now())
+  completedAt      DateTime?
+
+  @@unique([sourceId, scheduledDate])
+  @@index([status, startedAt])
+  @@map("catalog_sync_runs")
 }

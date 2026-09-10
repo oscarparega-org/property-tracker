@@ -1,23 +1,22 @@
 # House Tracker
 
-Private property tracking with a Spanish Next.js interface, a Hono API, Better Auth, Prisma, PostgreSQL, and a separate URL-import worker.
+Property discovery and private search tracking with a Spanish Next.js interface, a Hono API, Better Auth, Prisma, PostgreSQL, a URL-import worker, and a nightly curated-catalog scheduler.
 
 ## Fresh-start behavior
 
-There is no seed step, legacy-data import, or automatic account creation. New accounts have an empty collection. Migrations add the property tables without deleting existing authentication data or resetting a database.
+Production does not create demo accounts or reset application data. Migrations preserve authentication data, create the CDMX / Benito Juárez / Narvarte Poniente location hierarchy, and register the versioned REMAX catalog source. New accounts start without searches but can browse the public catalog immediately.
 
 After deployment:
 
-1. Open the frontend and create an account.
-2. Create a named search from the empty search overview.
-3. Open the search, choose **Agregar**, and submit a public property-listing URL.
-4. Optionally select other searches that should contain the same property.
-5. Wait for extraction, review the draft, then select **Publicar**.
-6. Check the map/list and save favorites, notes, rating, or a visit date for that search.
+1. Open the frontend and browse the curated catalog.
+2. Create an account and up to three named searches.
+3. Add a canonical catalog property to a search, import a public listing URL, or capture a property manually.
+4. Review imported drafts before publishing them; manual entries can be saved as drafts or published directly.
+5. Compare properties and save status, favorites, notes, rating, or a visit date independently in each search.
 
-Every search, property, draft, and import belongs to its authenticated owner. An account may have up to three searches. One property can belong to several searches: listing facts are shared, while status, favorites, notes, ratings, visits, rejection reasons, and archive state are stored independently per search. Two users may import the same listing independently. Photos remain external URLs; files are not uploaded.
+Every search, personal property, draft, import, and provider credential belongs to its authenticated owner. Curated catalog properties are ownerless canonical records shared across users. An account may have up to three searches, and one property can belong to several searches: listing facts are shared while status, favorites, notes, ratings, visits, rejection reasons, and archive state remain private per search. Two users may still import the same non-catalog listing independently. Photos remain external URLs; files are not uploaded.
 
-The multi-search migration is additive and retains the former lifecycle columns as rollback-compatible shadow data. Existing accounts receive a primary search named **Mi búsqueda**, and the migration aborts if property counts, ownership, or copied lifecycle values do not match. Removing the legacy columns is intentionally deferred to a later migration after the production rollback window closes.
+The multi-search migration was introduced additively and then finalized in a maintenance-window migration. Existing accounts receive a primary search named **Mi búsqueda**; lifecycle data now has one source of truth in `SearchProperty`, and rollback requires a forward fix.
 
 ## Local development
 
@@ -32,7 +31,7 @@ npm run db:migrate --workspace=house-tracker-backend
 npm run dev
 ```
 
-In another terminal, run `npm run worker:imports`. The frontend uses port 5173 and Hono uses port 3000. Alternatively, `docker compose up --build` runs PostgreSQL, migrations, API, worker, and frontend together.
+In additional terminals, run `npm run worker:imports` and `npm run catalog:sync --workspace=house-tracker-backend` when testing those processes directly. The frontend uses port 5173 and Hono uses port 3000. Alternatively, `docker compose up --build` runs PostgreSQL, migrations, API, import worker, catalog scheduler, and frontend together.
 
 ### Concurrent Orca worktrees
 
@@ -44,7 +43,7 @@ npm run wt:init
 npm run wt:dev
 ```
 
-`wt:init` writes an ignored `.env.worktree` with a stable Compose project name, free ports, local secrets, and unique `*.localhost` frontend/API hostnames. Existing configuration is validated against the checkout path so a copied file cannot accidentally share another worktree's database. `wt:dev` starts only that worktree's PostgreSQL service in Docker, deploys the checked-in Prisma migrations, creates an idempotent demo account and property, and runs the backend, frontend, and import worker locally with hot reload. PostgreSQL stays available when the dev process stops so restarts remain fast.
+`wt:init` writes an ignored `.env.worktree` with a stable Compose project name, free ports, local secrets, and unique `*.localhost` frontend/API hostnames. New worktrees receive local `ADMIN_EMAIL`, `ADMIN_NAME`, and `ADMIN_PASSWORD` values (the demo account by default); supply all three in the setup process environment to override them. Existing configuration is validated against the checkout path so a copied file cannot accidentally share another worktree's database. `wt:dev` starts only that worktree's PostgreSQL service in Docker, deploys the checked-in Prisma migrations, creates the idempotent admin and demo property, and runs the backend, frontend, import worker, and catalog scheduler locally with hot reload. PostgreSQL stays available when the dev process stops so restarts remain fast.
 
 Sign in with `demo@property-tracker.local` and `demo-password-123`. Restarting the stack preserves edits to the demo property and recreates only missing seed records. Set `DEV_SEED_ENABLED=false` in `.env.worktree` to opt out, or run `npm run wt:seed` to restore missing seed records manually.
 
@@ -80,7 +79,7 @@ Production reads the encryption key from the `PROVIDER_CREDENTIAL_ENCRYPTION_KEY
 
 New URL imports first make a safe, size-limited HTTP GET and extract HTML, JSON-LD, Open Graph, and embedded metadata. A deterministic confidence gate accepts clear property listings and rejects pages with no property evidence. Borderline pages are rejected when OpenAI is unavailable; when it is enabled, one grounded model response validates the page and completes only supported fields. Firecrawl is never automatic: an existing property's **Mejorar con Firecrawl + IA** action appears only when both providers are active, produces a preview, and fills empty fields plus new images/features without overwriting user-entered values or decisions. Provider calls use the authenticated user's own credential and are not rate limited by the application.
 
-The worker polls the database, atomically claims queued jobs, retries up to three attempts, and recovers interrupted work. Each deployment runs one worker. The worker health check verifies its heartbeat; failures exit and the container restart policy restarts it. Monitor failed jobs and worker logs through Coolify.
+The worker polls the database, atomically claims queued jobs, retries up to three attempts with exponential backoff, recovers interrupted work, and survives transient database polling failures. Each deployment runs one worker. The worker health check verifies its heartbeat; failures exit and the container restart policy restarts it. Monitor failed jobs and worker logs through Coolify.
 
 ## Architecture
 
@@ -90,15 +89,17 @@ The worker polls the database, atomically claims queued jobs, retries up to thre
 - `docker-compose.yml`: local developer stack.
 - `docker-compose.coolify.yml`: deployment stack.
 
-All property, import, and provider-settings routes require a session and return private, uncached responses. The frontend does not access Prisma or run property Server Actions. The API owns validation, ownership checks, credential encryption, and persistence. The worker decrypts a credential only for its owner's active job and retains it only in memory for that provider call.
+Operational targets, failure behavior, and the backup/restore exercise are defined in [the non-functional requirements](docs/architecture/non-functional-requirements.md). Architecture decisions are recorded in `docs/adr`; ADR 0008 covers the catalog hardening and scale envelope. `GET /api/catalog/status` exposes freshness and last-run status for every enabled source.
+
+Catalog reads and capability discovery are public. Search, personal-property, import, provider-settings, and catalog-administration writes require a session and return private, uncached responses. The frontend does not access Prisma. The API owns validation, authorization, credential encryption, and persistence. The worker decrypts a credential only for its owner's active job and retains it only in memory for that provider call. A database trigger prevents another user from linking a private property while permitting ownerless canonical catalog records.
 
 ## Deployment
 
 GitHub Actions remains the only deployment controller: quality checks and container builds precede deployment of the exact commit SHA. Coolify auto-deploy stays disabled. Naming and public URL derivation remain in `scripts/coolify.mjs`; deployment addresses, IDs, and tokens are configuration, not source constants.
 
-Organization/repository Actions variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UUID`, `DEPLOY_BASE_DOMAIN`. Secrets: `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`, plus `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` in the GitHub `dev` environment. The existing provisioner manages isolated repository resources and frontend/API domains.
+GitHub `dev` environment variables: `COOLIFY_API_URL`, `COOLIFY_SERVER_UUID`, `DEPLOY_BASE_DOMAIN`, `ADMIN_EMAIL`, and `ADMIN_NAME`. Secrets: `COOLIFY_WRITE_TOKEN`, `COOLIFY_DEPLOY_TOKEN`, `ADMIN_PASSWORD`, and `PROVIDER_CREDENTIAL_ENCRYPTION_KEY`. The existing provisioner manages isolated repository resources and frontend/API domains.
 
-The existing `migrate` service runs `prisma migrate deploy` before the API and worker start. The multi-search cutover intentionally takes a brief maintenance window: its final migration locks `Property`, reconciles every property into a search, and removes the old lifecycle columns before the replacement API starts. This prevents old and new application versions from writing different lifecycle sources. The worker reuses the backend image and exposes no port. Coolify generates PostgreSQL credentials and the Better Auth secret; the deployment controller injects the stable provider-credential encryption key from GitHub's `dev` environment. User provider tokens never enter the frontend build or deployment environment.
+The `migrate` service runs `prisma migrate deploy`, creates the initial Better Auth account from `ADMIN_EMAIL`, `ADMIN_NAME`, and `ADMIN_PASSWORD` when it does not exist, and synchronizes its admin role before the API, workers, and frontend start. Later deployments never replace the account name or password. The plaintext bootstrap password is not logged and is exposed only to the one-shot migration service; PostgreSQL stores Better Auth's password hash. The finalized multi-search cutover locks `Property`, reconciles every property into a search, and removes old lifecycle columns before replacement code serves traffic. The import worker and catalog scheduler reuse the backend image and expose no ports. The scheduler runs enabled catalog sources after 03:00 in `America/Mexico_City`, uses database locks and run records for idempotency, and retries one stale or failed daily run. Coolify generates PostgreSQL credentials and the Better Auth secret; the deployment controller injects the stable provider-credential encryption key from GitHub's `dev` environment. User provider tokens never enter the frontend build or deployment environment.
 
 Back up the PostgreSQL volume before deploying migrations. Roll back application code through the same exact-SHA pipeline, and review migration compatibility before selecting an older release because production migrations are forward-only. Do not reset or drop the database as a deployment step.
 
@@ -123,6 +124,6 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The browser suite expects the frontend built with the default local API URL, uses ports 3000 and 5179, and tests real signup, encrypted integration setup, private empty collections, URL extraction, draft publication, deep-enhancement preview/apply, saved decisions, and mobile layout. Publisher and provider responses are fixtures; no provider requests are billed. On machines where downloaded Chromium cannot launch, use `PLAYWRIGHT_CHANNEL=chrome npm run test:browser`.
+The browser suite expects the frontend built with its test API URL and tests real signup, all three add-property entry paths, public catalog filtering, login handoff, canonical-property attachment, private decisions, and responsive layout. Publisher and provider responses are fixtures; no provider requests are billed. On machines where downloaded Chromium cannot launch, use `PLAYWRIGHT_CHANNEL=chrome npm run test:browser`.
 
 CI runs these suites against a PostgreSQL service before deployment. Tests delete only their own generated accounts and related records. They never connect to the original house database or seed a deployed environment.
